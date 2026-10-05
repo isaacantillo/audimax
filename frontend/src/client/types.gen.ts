@@ -5,6 +5,30 @@ export type ClientOptions = {
 };
 
 /**
+ * ApiTokenRequest
+ */
+export type ApiTokenRequest = {
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
+ * ApiTokenResponse
+ */
+export type ApiTokenResponse = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Token
+     */
+    token: string;
+};
+
+/**
  * CourseSummary
  */
 export type CourseSummary = {
@@ -69,6 +93,20 @@ export type LectureSummary = {
      * Summary
      */
     summary: string;
+};
+
+/**
+ * LoginRequest
+ */
+export type LoginRequest = {
+    /**
+     * Username
+     */
+    username: string;
+    /**
+     * Password
+     */
+    password: string;
 };
 
 /**
@@ -170,6 +208,20 @@ export type TranscriptSegment = {
 };
 
 /**
+ * UserOut
+ */
+export type UserOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Username
+     */
+    username: string;
+};
+
+/**
  * ValidationError
  */
 export type ValidationError = {
@@ -216,6 +268,88 @@ export type HealthResponses = {
 };
 
 export type HealthResponse = HealthResponses[keyof HealthResponses];
+
+export type LoginData = {
+    body: LoginRequest;
+    path?: never;
+    query?: never;
+    url: '/api/auth/login';
+};
+
+export type LoginErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LoginError = LoginErrors[keyof LoginErrors];
+
+export type LoginResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserOut;
+};
+
+export type LoginResponse = LoginResponses[keyof LoginResponses];
+
+export type LogoutData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/auth/logout';
+};
+
+export type LogoutResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type LogoutResponse = LogoutResponses[keyof LogoutResponses];
+
+export type GetMeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/auth/me';
+};
+
+export type GetMeResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserOut;
+};
+
+export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
+
+export type CreateApiTokenData = {
+    body: ApiTokenRequest;
+    path?: never;
+    query?: never;
+    url: '/api/auth/tokens';
+};
+
+export type CreateApiTokenErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateApiTokenError = CreateApiTokenErrors[keyof CreateApiTokenErrors];
+
+export type CreateApiTokenResponses = {
+    /**
+     * Successful Response
+     */
+    200: ApiTokenResponse;
+};
+
+export type CreateApiTokenResponse = CreateApiTokenResponses[keyof CreateApiTokenResponses];
 
 export type ListCoursesData = {
     body?: never;

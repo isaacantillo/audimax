@@ -12,13 +12,23 @@ services:
       interval: 5s
       retries: 10
 
-  app:
+  migrate:
     build: { context: ., dockerfile: backend/Dockerfile }
     env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://audimax:${POSTGRES_PASSWORD:-audimax}@db:5432/audimax
     depends_on:
       db: { condition: service_healthy }
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  app:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://audimax:${POSTGRES_PASSWORD:-audimax}@db:5432/audimax
+    depends_on:
+      migrate: { condition: service_completed_successfully }
     ports:
       - "8000:8000"
     healthcheck:

@@ -6,7 +6,7 @@ import { getLectureOptions } from '@/client/@tanstack/react-query.gen'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-export const Route = createFileRoute('/lectures/$lectureId')({ component: LectureView })
+export const Route = createFileRoute('/_authed/lectures/$lectureId')({ component: LectureView })
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 

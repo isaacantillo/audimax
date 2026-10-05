@@ -5,7 +5,7 @@ import { listLecturesOptions } from '@/client/@tanstack/react-query.gen'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
-export const Route = createFileRoute('/courses/$courseId')({ component: CoursePage })
+export const Route = createFileRoute('/_authed/courses/$courseId')({ component: CoursePage })
 
 function CoursePage() {
   const { courseId } = Route.useParams()

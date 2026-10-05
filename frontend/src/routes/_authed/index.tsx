@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
-export const Route = createFileRoute('/')({ component: CourseList })
+export const Route = createFileRoute('/_authed/')({ component: CourseList })
 
 function CourseList() {
   const { data: courses, isPending, error } = useQuery(listCoursesOptions())

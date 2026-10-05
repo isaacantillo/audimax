@@ -9,6 +9,13 @@ import './index.css'
 
 // Same-origin in both setups: Vite proxies /api in dev, FastAPI serves both in prod.
 client.setConfig({ baseUrl: '', credentials: 'include' })
+// An expired session on any call sends the user to the login page.
+client.interceptors.response.use((response) => {
+  if (response.status === 401 && !window.location.pathname.startsWith('/login')) {
+    window.location.assign('/login')
+  }
+  return response
+})
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },

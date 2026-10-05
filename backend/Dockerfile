@@ -17,6 +17,8 @@ WORKDIR /code
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY backend/app ./app
+COPY backend/alembic ./alembic
+COPY backend/alembic.ini .
 COPY --from=frontend /fe/dist ./dist
 ENV PATH="/code/.venv/bin:$PATH"
 EXPOSE 8000

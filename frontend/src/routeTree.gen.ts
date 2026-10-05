@@ -9,109 +9,155 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as ActivityRouteImport } from './routes/activity'
-import { Route as CoursesCourseIdRouteImport } from './routes/courses.$courseId'
-import { Route as LecturesLectureIdRouteImport } from './routes/lectures.$lectureId'
+import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as AuthedActivityRouteImport } from './routes/_authed/activity'
+import { Route as AuthedCoursesCourseIdRouteImport } from './routes/_authed/courses.$courseId'
+import { Route as AuthedLecturesLectureIdRouteImport } from './routes/_authed/lectures.$lectureId'
 
-const IndexRoute = IndexRouteImport.update({
+const AuthedRoute = AuthedRouteImport.update({
+  id: '/_authed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedIndexRoute = AuthedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthedRoute,
 } as any)
-const ActivityRoute = ActivityRouteImport.update({
+const AuthedActivityRoute = AuthedActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthedRoute,
 } as any)
-const CoursesCourseIdRoute = CoursesCourseIdRouteImport.update({
+const AuthedCoursesCourseIdRoute = AuthedCoursesCourseIdRouteImport.update({
   id: '/courses/$courseId',
   path: '/courses/$courseId',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthedRoute,
 } as any)
-const LecturesLectureIdRoute = LecturesLectureIdRouteImport.update({
+const AuthedLecturesLectureIdRoute = AuthedLecturesLectureIdRouteImport.update({
   id: '/lectures/$lectureId',
   path: '/lectures/$lectureId',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthedRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/activity': typeof ActivityRoute
-  '/courses/$courseId': typeof CoursesCourseIdRoute
-  '/lectures/$lectureId': typeof LecturesLectureIdRoute
+  '/': typeof AuthedIndexRoute
+  '/login': typeof LoginRoute
+  '/activity': typeof AuthedActivityRoute
+  '/courses/$courseId': typeof AuthedCoursesCourseIdRoute
+  '/lectures/$lectureId': typeof AuthedLecturesLectureIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/activity': typeof ActivityRoute
-  '/courses/$courseId': typeof CoursesCourseIdRoute
-  '/lectures/$lectureId': typeof LecturesLectureIdRoute
+  '/login': typeof LoginRoute
+  '/activity': typeof AuthedActivityRoute
+  '/': typeof AuthedIndexRoute
+  '/courses/$courseId': typeof AuthedCoursesCourseIdRoute
+  '/lectures/$lectureId': typeof AuthedLecturesLectureIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/activity': typeof ActivityRoute
-  '/courses/$courseId': typeof CoursesCourseIdRoute
-  '/lectures/$lectureId': typeof LecturesLectureIdRoute
+  '/_authed': typeof AuthedRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_authed/activity': typeof AuthedActivityRoute
+  '/_authed/': typeof AuthedIndexRoute
+  '/_authed/courses/$courseId': typeof AuthedCoursesCourseIdRoute
+  '/_authed/lectures/$lectureId': typeof AuthedLecturesLectureIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/activity' | '/courses/$courseId' | '/lectures/$lectureId'
+  fullPaths:
+    '/' | '/login' | '/activity' | '/courses/$courseId' | '/lectures/$lectureId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/activity' | '/courses/$courseId' | '/lectures/$lectureId'
+  to:
+    '/login' | '/activity' | '/' | '/courses/$courseId' | '/lectures/$lectureId'
   id:
     | '__root__'
-    | '/'
-    | '/activity'
-    | '/courses/$courseId'
-    | '/lectures/$lectureId'
+    | '/_authed'
+    | '/login'
+    | '/_authed/activity'
+    | '/_authed/'
+    | '/_authed/courses/$courseId'
+    | '/_authed/lectures/$lectureId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  ActivityRoute: typeof ActivityRoute
-  CoursesCourseIdRoute: typeof CoursesCourseIdRoute
-  LecturesLectureIdRoute: typeof LecturesLectureIdRoute
+  AuthedRoute: typeof AuthedRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_authed': {
+      id: '/_authed'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authed/': {
+      id: '/_authed/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthedIndexRouteImport
+      parentRoute: typeof AuthedRoute
     }
-    '/activity': {
-      id: '/activity'
+    '/_authed/activity': {
+      id: '/_authed/activity'
       path: '/activity'
       fullPath: '/activity'
-      preLoaderRoute: typeof ActivityRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthedActivityRouteImport
+      parentRoute: typeof AuthedRoute
     }
-    '/courses/$courseId': {
-      id: '/courses/$courseId'
+    '/_authed/courses/$courseId': {
+      id: '/_authed/courses/$courseId'
       path: '/courses/$courseId'
       fullPath: '/courses/$courseId'
-      preLoaderRoute: typeof CoursesCourseIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthedCoursesCourseIdRouteImport
+      parentRoute: typeof AuthedRoute
     }
-    '/lectures/$lectureId': {
-      id: '/lectures/$lectureId'
+    '/_authed/lectures/$lectureId': {
+      id: '/_authed/lectures/$lectureId'
       path: '/lectures/$lectureId'
       fullPath: '/lectures/$lectureId'
-      preLoaderRoute: typeof LecturesLectureIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthedLecturesLectureIdRouteImport
+      parentRoute: typeof AuthedRoute
     }
   }
 }
 
+interface AuthedRouteChildren {
+  AuthedActivityRoute: typeof AuthedActivityRoute
+  AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedCoursesCourseIdRoute: typeof AuthedCoursesCourseIdRoute
+  AuthedLecturesLectureIdRoute: typeof AuthedLecturesLectureIdRoute
+}
+
+const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedActivityRoute: AuthedActivityRoute,
+  AuthedIndexRoute: AuthedIndexRoute,
+  AuthedCoursesCourseIdRoute: AuthedCoursesCourseIdRoute,
+  AuthedLecturesLectureIdRoute: AuthedLecturesLectureIdRoute,
+}
+
+const AuthedRouteWithChildren =
+  AuthedRoute._addFileChildren(AuthedRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  ActivityRoute: ActivityRoute,
-  CoursesCourseIdRoute: CoursesCourseIdRoute,
-  LecturesLectureIdRoute: LecturesLectureIdRoute,
+  AuthedRoute: AuthedRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

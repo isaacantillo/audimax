@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CourseMindmapData, CourseMindmapErrors, CourseMindmapResponses, GetLectureData, GetLectureErrors, GetLectureResponses, HealthData, HealthResponses, ListCoursesData, ListCoursesResponses, ListLecturesData, ListLecturesErrors, ListLecturesResponses, StatusValuesData, StatusValuesResponses } from './types.gen';
+import type { CourseMindmapData, CourseMindmapErrors, CourseMindmapResponses, CreateApiTokenData, CreateApiTokenErrors, CreateApiTokenResponses, GetLectureData, GetLectureErrors, GetLectureResponses, GetMeData, GetMeResponses, HealthData, HealthResponses, ListCoursesData, ListCoursesResponses, ListLecturesData, ListLecturesErrors, ListLecturesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, StatusValuesData, StatusValuesResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -22,6 +22,42 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  * Health
  */
 export const health = <ThrowOnError extends boolean = false>(options?: Options<HealthData, ThrowOnError>): RequestResult<HealthResponses, unknown, ThrowOnError> => (options?.client ?? client).get<HealthResponses, unknown, ThrowOnError>({ url: '/api/health', ...options });
+
+/**
+ * Login
+ */
+export const login = <ThrowOnError extends boolean = false>(options: Options<LoginData, ThrowOnError>): RequestResult<LoginResponses, LoginErrors, ThrowOnError> => (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({
+    url: '/api/auth/login',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Logout
+ */
+export const logout = <ThrowOnError extends boolean = false>(options?: Options<LogoutData, ThrowOnError>): RequestResult<LogoutResponses, unknown, ThrowOnError> => (options?.client ?? client).post<LogoutResponses, unknown, ThrowOnError>({ url: '/api/auth/logout', ...options });
+
+/**
+ * Get Me
+ */
+export const getMe = <ThrowOnError extends boolean = false>(options?: Options<GetMeData, ThrowOnError>): RequestResult<GetMeResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetMeResponses, unknown, ThrowOnError>({ url: '/api/auth/me', ...options });
+
+/**
+ * Create Api Token
+ *
+ * Long-lived bearer token, e.g. for the phone Shortcut. Returned once, stored hashed.
+ */
+export const createApiToken = <ThrowOnError extends boolean = false>(options: Options<CreateApiTokenData, ThrowOnError>): RequestResult<CreateApiTokenResponses, CreateApiTokenErrors, ThrowOnError> => (options.client ?? client).post<CreateApiTokenResponses, CreateApiTokenErrors, ThrowOnError>({
+    url: '/api/auth/tokens',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List Courses
