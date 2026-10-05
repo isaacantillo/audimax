@@ -6,3 +6,14 @@ backend/data/*
 .DS_Store
 .vscode/
 .idea/
+
+# Generated / build output
+frontend/dist/
+frontend/node_modules/
+backend/dist/
+backend/openapi.json
+
+# Secrets
+.env
+.env.*
+!.env.example
