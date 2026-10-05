@@ -1,11 +1,17 @@
-"""Full lecture pipeline: German recording -> transcript -> translated units -> English lecture.
+"""Full lecture pipeline: German recording(s) -> transcript -> translated units -> English lecture.
+
+A lecture recorded in several files is one lecture: files named <lecture>_<n> are grouped,
+so SE1_L1_1.m4a + SE1_L1_2.m4a become lecture SE1_L1, transcribed per part and joined on
+one timeline. Pass any number of files; each lecture is processed in turn.
 
 Stages (each writes into data/results/<lecture>/ and is skipped if its output exists):
 
-    transcribe  transcript.json          MAI-Transcribe 2 (audio_to_transcript.py)
+    transcribe  transcripts/<part>.json  MAI-Transcribe 2 per part (audio_to_transcript.py),
+                transcript.json          merged onto one timeline
     units       units.json               sentence units + DeepL translation (resegment.py)
     chunks      chunks.json              LLM splits the lecture into topic chunks
     checklists  chunks/NN.checklist.json every definition / example / tip / exam hint per chunk
+    glossary    glossary.json            the few German key terms worth saying in German once
     scripts     chunks/NN.script.json    English re-performed script, verified against the checklist
     voice       clips/*.wav, tts.json    one TTS clip per paragraph; provider pinned per lecture
     assemble    lecture_en.{mp3,json,md} stitched audio, paragraph timestamps, links to the German
@@ -14,13 +20,15 @@ Rerunning only redoes what is missing. Delete chunks/03.script.json and rerun: c
 rewritten, and only its changed paragraphs are re-voiced (clips are keyed by text hash).
 
 Usage (from backend/):
-    uv run python scripts/pipeline.py data/SE1/SE1_L1_1.m4a
-    uv run python scripts/pipeline.py data/SE1/SE1_L1_1.m4a --redo scripts
+    uv run python scripts/pipeline.py data/SE1/SE1_L1_1.m4a data/SE1/SE1_L1_2.m4a
+    uv run python scripts/pipeline.py data/SE1/*.m4a                  # every lecture in SE1
+    uv run python scripts/pipeline.py data/SE1/SE1_L1_*.m4a --redo scripts
 """
 
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -43,9 +51,10 @@ TTS_PROVIDERS = [
     ("qwen", "qwen/qwen-audio-3.0-tts-plus", "longanlufeng"),
 ]
 
-STAGES = ["transcribe", "units", "chunks", "checklists", "scripts", "voice", "assemble"]
+STAGES = ["transcribe", "units", "chunks", "checklists", "glossary", "scripts", "voice", "assemble"]
 MAX_WRITE_ATTEMPTS = 3
 WORKERS = 4
+DEEPL_BATCH = 150  # units per DeepL request, well under its 128 KiB request limit
 SAMPLE_RATE = 24_000
 PARAGRAPH_PAUSE = 0.6
 CHUNK_PAUSE = 1.4
@@ -71,6 +80,15 @@ class ChecklistItem(BaseModel):
 
 class Checklist(BaseModel):
     items: list[ChecklistItem]
+
+
+class Term(BaseModel):
+    german: str
+    english: str
+
+
+class Glossary(BaseModel):
+    terms: list[Term]
 
 
 class Paragraph(BaseModel):
@@ -101,8 +119,20 @@ university lecture. List, in order, EVERY definition, explanation step, example,
 exam hint ("das kommt in der Klausur", "merken Sie sich", ...). Be exhaustive: this list is used
 to prove nothing was lost in an English rewrite. Write `content` as one precise English
 sentence. Put the German subject-specific terms involved in `german_terms` exactly as spoken
-(not everyday words like "Klausur"). Skip only filler, false starts, repetition and
-organisational talk (rooms, attendance, breaks); a chunk of pure admin gets an empty list."""
+(not everyday words like "Klausur"). Course rules count as content: exam format, grading,
+deadlines, submission rules, required materials, recommended reading, academic honesty and
+anything about what is or is not exam-relevant. Skip only filler, false starts, repetition and
+throwaway logistics (mic checks, attendance/QR codes, room changes, breaks); a chunk that is
+nothing but those gets an empty list."""
+
+GLOSSARY_PROMPT = """You pick the German key terms a student must know for a German-language
+exam on this lecture. You get candidate terms with the checklist content they came from.
+Keep only genuine subject terms a student would have to write or recognise in the exam
+(e.g. "Vererbung", "technische Schulden", "Anforderungsdefinition"). Drop:
+- words that are the same or nearly the same in English (Test, Analyse, Integration, Komplexität),
+- English loanwords (Best Practices, Coding), proper names, products, course codes, file names,
+- everyday words (Daten, Klassen, Methoden, programmieren, Folie).
+Usually 5-20 terms per lecture. Use the base form, deduplicated, with the English equivalent."""
 
 WRITE_PROMPT = """You are a fluent English-speaking professor re-delivering a German lecture.
 Rewrite the German chunk below directly into natural spoken English, in the professor's own
@@ -111,8 +141,9 @@ It is not a summary and not a sentence-by-sentence dub. Drop filler ("ähm"), re
 false starts and admin talk. Do not add facts, examples or claims that are not in the source.
 
 - Every checklist item must appear in the script.
-- The first time a German key term from "Introduce" appears, say the English term and then the
+- For each term under "Introduce", the first time it comes up, say the English term and then the
   German one, e.g. "working memory, in German Arbeitsgedächtnis,". Students are examined in German.
+  Say no other German words: everything else is in English only.
 - Write for the ear: short paragraphs (2-5 sentences), no lists, no markdown, no headings,
   spell out symbols and formulas the way a professor would say them.
 - For each paragraph give the first and last German unit id it is based on."""
@@ -161,6 +192,21 @@ def unit_lines(units: list[Segment]) -> str:
     return "\n".join(f"[{u.id}] ({mmss(u.start)}) {u.text}" for u in units)
 
 
+def mentions(term: str, text: str) -> bool:
+    """Whether every word of `term` occurs in `text`, ignoring German inflection endings."""
+    return all(w[:max(4, len(w) - 2)] in text for w in term.lower().split())
+
+
+def lecture_name(audio: Path) -> str:
+    """SE1_L1_1.m4a and SE1_L1_2.m4a are parts of lecture SE1_L1."""
+    return re.sub(r"_\d+$", "", audio.stem)
+
+
+def part_number(audio: Path) -> int:
+    match = re.search(r"_(\d+)$", audio.stem)
+    return int(match.group(1)) if match else 0
+
+
 def parallel(fn, items) -> list:
     with ThreadPoolExecutor(WORKERS) as pool:
         return list(pool.map(fn, items))
@@ -169,9 +215,9 @@ def parallel(fn, items) -> list:
 # ---------- stages ----------
 
 class Pipeline:
-    def __init__(self, audio: Path, results: Path):
-        self.audio = audio
-        self.name = audio.stem
+    def __init__(self, name: str, parts: list[Path], results: Path):
+        self.name = name
+        self.parts = sorted(parts, key=part_number)
         self.out = results / self.name
         self.chunk_dir = self.out / "chunks"
         self.clip_dir = self.out / "clips"
@@ -183,6 +229,7 @@ class Pipeline:
         for s in STAGES[STAGES.index(stage):]:
             match s:
                 case "transcribe":
+                    shutil.rmtree(self.out / "transcripts", ignore_errors=True)
                     (self.out / "transcript.json").unlink(missing_ok=True)
                 case "units":
                     (self.out / "units.json").unlink(missing_ok=True)
@@ -191,6 +238,8 @@ class Pipeline:
                 case "checklists":
                     for p in self.chunk_dir.glob("*.checklist.json"):
                         p.unlink()
+                case "glossary":
+                    (self.out / "glossary.json").unlink(missing_ok=True)
                 case "scripts":
                     for p in self.chunk_dir.glob("*.script.json"):
                         p.unlink()
@@ -206,23 +255,52 @@ class Pipeline:
         units = self.units(transcript)
         chunks = self.chunks(units)
         checklists = self.checklists(chunks, units)
-        scripts = self.scripts(chunks, checklists, units)
+        glossary = self.glossary(checklists)
+        scripts = self.scripts(chunks, checklists, glossary, units)
         tts, clips = self.voice(scripts)
-        self.assemble(scripts, clips, tts, units, transcript["duration"])
+        self.assemble(scripts, clips, tts, units, transcript)
 
     def transcribe(self) -> dict:
+        """Transcribe each part (cached per file) and shift its timestamps onto one timeline."""
+        def one(audio: Path) -> dict:
+            path = self.out / "transcripts" / f"{audio.stem}.json"
+            if not path.exists():
+                print(f"transcribe: {audio}")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(transcribe(audio).model_dump_json(indent=2), encoding="utf-8")
+            return read_json(path)
+
+        transcripts = parallel(one, self.parts)
+        merged = {"duration": 0.0, "parts": [], "words": [], "segments": []}
+        for audio, part in zip(self.parts, transcripts, strict=True):
+            offset = merged["duration"]
+            merged["parts"].append({"file": audio.name, "offset": offset, "duration": part["duration"]})
+            for key in ("words", "segments"):
+                merged[key] += [
+                    {**x, "start": x["start"] + offset, "end": x["end"] + offset}
+                    for x in part.get(key) or []
+                ]
+            merged["duration"] = offset + part["duration"]
+        if not all(part.get("words") for part in transcripts):
+            merged["words"] = []  # mixed timing would drop the parts without words
+
         path = self.out / "transcript.json"
-        if not path.exists():
-            print("transcribe: sending audio to", self.audio)
-            result = transcribe(self.audio)
-            path.write_text(result.model_dump_json(indent=2), encoding="utf-8")
-        return read_json(path)
+        if path.exists() and read_json(path).get("parts") != merged["parts"]:
+            print("transcribe: parts changed, redoing everything after transcription")
+            self.redo("units")
+        write_json(path, merged)
+        return merged
 
     def units(self, transcript: dict) -> list[Segment]:
         path = self.out / "units.json"
         if not path.exists():
-            segments = parse_segments(transcript["segments"])
-            translate_segments(segments)
+            # Prefer word timing: provider segments can be minutes long, which would make
+            # every unit (and every "hear original" link) that coarse.
+            words = transcript.get("words") or []
+            pieces = [{"text": w["word"], "start": w["start"], "end": w["end"]} for w in words]
+            segments = parse_segments(pieces or transcript["segments"])
+            for i in range(0, len(segments), DEEPL_BATCH):
+                translate_segments(segments[i:i + DEEPL_BATCH])
             write_json(path, [asdict(s) for s in segments])
             print(f"units: {len(segments)} sentences translated")
         return [Segment(**u) for u in read_json(path)]
@@ -261,15 +339,30 @@ class Pipeline:
 
         return parallel(one, chunks)
 
-    def scripts(self, chunks: list[dict], checklists: list[Checklist], units: list[Segment]) -> list[dict]:
-        # German terms are introduced once per lecture, so work out where each first appears
-        # before chunks are written in parallel.
-        seen: set[str] = set()
+    def glossary(self, checklists: list[Checklist]) -> Glossary:
+        path = self.out / "glossary.json"
+        if not path.exists():
+            candidates = "\n".join(
+                f"{', '.join(item.german_terms)}: {item.content}"
+                for checklist in checklists for item in checklist.items if item.german_terms
+            )
+            glossary = ask(GLOSSARY_PROMPT, candidates or "(no candidates)", Glossary)
+            write_json(path, glossary.model_dump())
+            print(f"glossary: {len(glossary.terms)} key terms")
+        return Glossary.model_validate(read_json(path))
+
+    def scripts(
+        self, chunks: list[dict], checklists: list[Checklist], glossary: Glossary, units: list[Segment]
+    ) -> list[dict]:
+        # Each glossary term is introduced in the first chunk whose German source mentions it,
+        # worked out up front because chunks are written in parallel.
+        remaining = list(glossary.terms)
         introduce: list[list[str]] = []
-        for checklist in checklists:
-            new = [t for item in checklist.items for t in item.german_terms if t.lower() not in seen]
-            seen.update(t.lower() for t in new)
-            introduce.append(list(dict.fromkeys(new)))
+        for chunk in chunks:
+            source = " ".join(u.text for u in units[chunk["first_unit"]:chunk["last_unit"] + 1]).lower()
+            here = [t for t in remaining if mentions(t.german, source)]
+            remaining = [t for t in remaining if t not in here]
+            introduce.append([f"{t.english} = {t.german}" for t in here])
 
         def one(i: int) -> dict:
             path = self.chunk_dir / f"{i:02d}.script.json"
@@ -369,7 +462,19 @@ class Pipeline:
             out.writeframes(response.content)
         partial.rename(clip)
 
-    def assemble(self, scripts, clips: list[Path], tts: dict, units: list[Segment], source_duration: float) -> None:
+    def assemble(self, scripts, clips: list[Path], tts: dict, units: list[Segment], transcript: dict) -> None:
+        parts = transcript["parts"]
+        source_duration = transcript["duration"]
+
+        def locate(t: float) -> tuple[int, float]:
+            """Lecture time -> (part index, seconds into that part's file) for "hear original"."""
+            index = max(i for i, part in enumerate(parts) if part["offset"] <= t)
+            return index, round(t - parts[index]["offset"], 2)
+
+        def stamp(t: float) -> str:
+            index, local = locate(t)
+            return f"part {index + 1} {mmss(local)}" if len(parts) > 1 else mmss(local)
+
         wav_path = self.out / "lecture_en.wav"
         clip_iter = iter(clips)
         t = 0.0
@@ -406,6 +511,9 @@ class Pipeline:
                         "end": round(t + length, 2),
                         "source_start": units[p["first_unit"]].start,
                         "source_end": units[p["last_unit"]].end,
+                        # Where to seek for "hear original": the part's file and time within it.
+                        "source_file": parts[locate(units[p["first_unit"]].start)[0]]["file"],
+                        "source_file_start": locate(units[p["first_unit"]].start)[1],
                     })
                     t += length + silence(PARAGRAPH_PAUSE)
                 t += silence(CHUNK_PAUSE - PARAGRAPH_PAUSE)
@@ -429,6 +537,7 @@ class Pipeline:
         write_json(self.out / "lecture_en.json", {
             "lecture": self.name,
             "source_duration": source_duration,
+            "parts": parts,
             "duration": round(t, 2),
             "tts": tts,
             "chunks": chunks_out,
@@ -439,7 +548,7 @@ class Pipeline:
             flag = "" if c["verified"] else "  ⚠ unverified"
             lines += [f"## {c['title']}{flag}", ""]
             for p in c["paragraphs"]:
-                lines += [f"{p['text']} *[{mmss(p['source_start'])}]*", ""]
+                lines += [f"{p['text']} *[{stamp(p['source_start'])}]*", ""]
         (self.out / "lecture_en.md").write_text("\n".join(lines), encoding="utf-8")
 
         unverified = [c["id"] for c in chunks_out if not c["verified"]]
@@ -452,12 +561,18 @@ class Pipeline:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("audio", type=Path, help="lecture recording, e.g. data/SE1/SE1_L1_1.m4a")
+    parser.add_argument("audio", type=Path, nargs="+", help="recordings, e.g. data/SE1/SE1_L1_*.m4a")
     parser.add_argument("--results", type=Path, default=Path("data/results"))
     parser.add_argument("--redo", choices=STAGES, help="discard this stage's output and everything after it")
     args = parser.parse_args()
 
-    pipeline = Pipeline(args.audio, args.results)
-    if args.redo:
-        pipeline.redo(args.redo)
-    pipeline.run()
+    lectures: dict[str, list[Path]] = {}
+    for audio in args.audio:
+        lectures.setdefault(lecture_name(audio), []).append(audio)
+
+    for name, parts in lectures.items():
+        print(f"== {name}: {', '.join(p.name for p in sorted(parts, key=part_number))}")
+        pipeline = Pipeline(name, parts, args.results)
+        if args.redo:
+            pipeline.redo(args.redo)
+        pipeline.run()

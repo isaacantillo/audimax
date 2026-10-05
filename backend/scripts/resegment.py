@@ -1,4 +1,5 @@
 import os
+import re
 import json
 from pathlib import Path
 from dataclasses import dataclass, asdict
@@ -47,7 +48,8 @@ def parse_segments(segments: list) -> list[Segment]:
 
         sentence += segment_text
 
-        if sentence[-1] in ".?!":
+        # "4.10." or "3." is a date or ordinal, not the end of a sentence.
+        if sentence[-1] in ".?!" and not re.search(r"\d\.$", sentence):
             sentences.append(Segment(
                 id=len(sentences),
                 start=start,

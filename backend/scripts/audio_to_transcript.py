@@ -48,13 +48,14 @@ def to_supported_audio(path: Path) -> Path:
 
 
 def transcribe(path: Path):
-    """Transcribe with segment-level timestamps (verbose_json)."""
+    """Transcribe with word- and segment-level timestamps (verbose_json)."""
     with to_supported_audio(path).open("rb") as f:
         return openai_client.audio.transcriptions.create(
             model=MODEL,
             file=f,
             response_format="verbose_json",
-            timestamp_granularities=["segment"],
+            # Segments can span minutes; words give sentence-level timing.
+            timestamp_granularities=["word", "segment"],
         )
 
 
