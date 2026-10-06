@@ -29,11 +29,8 @@ class Settings(BaseSettings):
         "gemini:google/gemini-3.1-flash-tts-preview:Charon,"
         "qwen:qwen/qwen-audio-3.0-tts-plus:longanlufeng"
     )
-    embedding_model: str = "openai/text-embedding-3-large"
-    embedding_dims: int = 1536  # pgvector HNSW caps at 2000 dims for `vector`
     storage_dir: str = "data/storage"  # used when R2 is not configured
     deepl_api_key: str = ""
-    tavily_api_key: str = ""
 
     # Cloudflare R2 (S3-compatible). Empty => storage falls back to backend/data/.
     r2_account_id: str = ""

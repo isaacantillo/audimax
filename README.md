@@ -1,8 +1,8 @@
 # Audimax
 
-Record German university lectures, get a searchable transcript with English translation, a summary, a mind map, chat with citations, and an **English re-performed version of each lecture as audio**: every explanation, example, tip and exam hint kept, only the noise removed.
+Record German university lectures and get: a transcript with English translation, a study summary, a search box over everything, and an **English re-performed version of each lecture as audio**: every explanation, example, tip and exam hint kept, only the noise removed.
 
-FastAPI + Postgres (pgvector) + a Procrastinate worker on the backend; React, TanStack Router/Query, shadcn on the front, served by FastAPI itself (`app.frontend()`).
+FastAPI + Postgres + a Procrastinate worker on the backend; React, TanStack Router/Query, shadcn on the front, served by FastAPI itself (`app.frontend()`).
 
 ## Run it
 
@@ -13,11 +13,15 @@ docker compose up -d --build
 
 Open <http://localhost:8000> and log in as `ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env`. Four containers: `db`, `migrate` (one-shot, creates the tables), `app` (API + UI), `worker` (all background jobs).
 
-**No credit / no keys?** Set `AI_STUB=true` in `.env`. Transcription, translation, LLM, TTS and embeddings are replaced by deterministic fakes, so the whole pipeline and UI work offline and for free (the text is obviously fake).
+**No credit / no keys?** Set `AI_STUB=true` in `.env`. Transcription, translation, LLM and TTS are replaced by deterministic fakes, so the whole pipeline and UI work offline and for free (the text is obviously fake).
 
 ### What happens to an upload
 
-`uploaded → transcribing → transcribed → translating → indexing → ready`, then optionally (button on the lecture, or a checkbox at upload) `chunking → scripting → voicing → assembling → english_ready`. Watch it on the **Activity** page; failed steps show the reason and can be retried. A lecture recorded in several files (`SE1_L1_1.m4a`, `SE1_L1_2.m4a`) is uploaded together and treated as one lecture.
+`uploaded → transcribing → transcribed → translating → summarizing → ready`, then optionally (button on the lecture, or a checkbox at upload) `chunking → scripting → voicing → assembling → english_ready`. Watch it on the **Activity** page; failed steps show the reason and can be retried. A lecture recorded in several files (`SE1_L1_1.m4a`, `SE1_L1_2.m4a`) is uploaded together and treated as one lecture.
+
+## Search
+
+The **Search** page finds a word or phrase in the German transcripts, their English translations and the English versions (case-insensitive, matches inside words too). Each hit opens the lecture at that moment. It is plain Postgres text matching: no AI, no cost.
 
 ## Cloudflare R2
 
@@ -59,9 +63,9 @@ cd frontend && pnpm install && pnpm dev # UI on :5173, proxies /api to :8000
 backend/app/
   routers/    HTTP endpoints (all under /api, everything but /health and /auth/login needs a login)
   jobs/       pipeline.py = the stages, tasks.py = queue tasks that chain them
-  services/   transcription, english_lecture (prompts), retrieval, insights, documents, llm, stub
+  services/   transcription, english_lecture (prompts), summary, llm, stub
   models/     SQLAlchemy tables      schemas/   API shapes (source of the TypeScript client)
-frontend/src/routes/   screens (file-based routing)    components/   chat, mind map, player bits
+frontend/src/routes/   screens (file-based routing)    hooks/   the multi-recording audio player
 ```
 
 Design notes and decisions: `IMPLEMENTATION_PLAN.md`.

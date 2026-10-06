@@ -1,8 +1,7 @@
 """Deterministic offline stand-ins for every AI call (AI_STUB=1). Same shapes, no network.
 
-Good enough to exercise the whole pipeline, retrieval and UI. The text is obviously fake."""
+Good enough to exercise the whole pipeline and UI. The text is obviously fake."""
 
-import hashlib
 import math
 import re
 import struct
@@ -63,34 +62,13 @@ def ask(system: str, user: str, schema: type[BaseModel]) -> Any:
         return schema.model_validate({"paragraphs": paragraphs})
     if name == "Verdict":
         return schema.model_validate({"missing_items": [], "invented": []})
-    if name == "MindMapDraft":
-        words = list(dict.fromkeys(_terms(user)))[:5] or ["Topic"]
-        return schema.model_validate(
-            {
-                "nodes": [{"key": w, "label": w, "summary": f"About {w}."} for w in words],
-                "edges": [
-                    {"source": a, "target": b, "relation": "relates to"} for a, b in zip(words, words[1:], strict=False)
-                ],
-            }
-        )
     raise NotImplementedError(f"no stub for {name}")
 
 
 def complete(messages: list[dict[str, str]]) -> str:
-    last = messages[-1]["content"]
     if "SUMMARY_REQUEST" in messages[0]["content"]:
         return "## Summary\n\n- Stub summary of the lecture.\n- Second point."
-    return "Stub answer based on the sources [1]." if "[1]" in last else "Stub answer."
-
-
-def embedding(text: str, dims: int) -> list[float]:
-    """Hashed bag of words: texts sharing words get nearby vectors, so retrieval tests are meaningful."""
-    vec = [0.0] * dims
-    for token in re.findall(r"\w+", text.lower()):
-        h = int.from_bytes(hashlib.sha256(token.encode()).digest()[:4], "big")
-        vec[h % dims] += 1.0
-    norm = math.sqrt(sum(v * v for v in vec)) or 1.0
-    return [v / norm for v in vec]
+    return "Stub answer."
 
 
 def speech(text: str, rate: int = 24000) -> bytes:

@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { chat, courseMindmap, createApiToken, createCourse, createDocument, createEnglish, createLecture, deleteCourse, deleteDocument, deleteLecture, getChatSelection, getCourse, getDocument, getLecture, getMe, getSummary, health, history_, lectureMindmap, listCourses, listDocuments, listJobs, listLectures, login, logout, type Options, refreshCourseMindmap, refreshLectureMindmap, rerunChunk, retryJob, setChatSelection } from '../sdk.gen';
-import type { ChatData, ChatError, ChatResponse2, CourseMindmapData, CourseMindmapError, CourseMindmapResponse, CreateApiTokenData, CreateApiTokenError, CreateApiTokenResponse, CreateCourseData, CreateCourseError, CreateCourseResponse, CreateDocumentData, CreateDocumentError, CreateDocumentResponse, CreateEnglishData, CreateEnglishError, CreateLectureData, CreateLectureError, CreateLectureResponse, DeleteCourseData, DeleteCourseError, DeleteCourseResponse, DeleteDocumentData, DeleteDocumentError, DeleteDocumentResponse, DeleteLectureData, DeleteLectureError, DeleteLectureResponse, GetChatSelectionData, GetChatSelectionError, GetChatSelectionResponse, GetCourseData, GetCourseError, GetCourseResponse, GetDocumentData, GetDocumentError, GetDocumentResponse, GetLectureData, GetLectureError, GetLectureResponse, GetMeData, GetMeResponse, GetSummaryData, GetSummaryError, GetSummaryResponse, HealthData, HealthResponse, HistoryData, HistoryError, HistoryResponse, LectureMindmapData, LectureMindmapError, LectureMindmapResponse, ListCoursesData, ListCoursesResponse, ListDocumentsData, ListDocumentsError, ListDocumentsResponse, ListJobsData, ListJobsError, ListJobsResponse, ListLecturesData, ListLecturesError, ListLecturesResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, RefreshCourseMindmapData, RefreshCourseMindmapError, RefreshCourseMindmapResponse, RefreshLectureMindmapData, RefreshLectureMindmapError, RefreshLectureMindmapResponse, RerunChunkData, RerunChunkError, RetryJobData, RetryJobError, SetChatSelectionData, SetChatSelectionError, SetChatSelectionResponse } from '../types.gen';
+import { createApiToken, createCourse, createEnglish, createLecture, deleteCourse, deleteLecture, getCourse, getLecture, getMe, getSummary, health, listCourses, listJobs, listLectures, login, logout, type Options, rerunChunk, retryJob, search } from '../sdk.gen';
+import type { CreateApiTokenData, CreateApiTokenError, CreateApiTokenResponse, CreateCourseData, CreateCourseError, CreateCourseResponse, CreateEnglishData, CreateEnglishError, CreateLectureData, CreateLectureError, CreateLectureResponse, DeleteCourseData, DeleteCourseError, DeleteCourseResponse, DeleteLectureData, DeleteLectureError, DeleteLectureResponse, GetCourseData, GetCourseError, GetCourseResponse, GetLectureData, GetLectureError, GetLectureResponse, GetMeData, GetMeResponse, GetSummaryData, GetSummaryError, GetSummaryResponse, HealthData, HealthResponse, ListCoursesData, ListCoursesResponse, ListJobsData, ListJobsError, ListJobsResponse, ListLecturesData, ListLecturesError, ListLecturesResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, RerunChunkData, RerunChunkError, RetryJobData, RetryJobError, SearchData, SearchError, SearchResponse2 } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -216,96 +216,6 @@ export const listLecturesOptions = (options: Options<ListLecturesData>) => query
     queryKey: listLecturesQueryKey(options)
 });
 
-export const listDocumentsQueryKey = (options: Options<ListDocumentsData>) => createQueryKey('listDocuments', options);
-
-/**
- * List Documents
- */
-export const listDocumentsOptions = (options: Options<ListDocumentsData>) => queryOptions<ListDocumentsResponse, ListDocumentsError, ListDocumentsResponse, ReturnType<typeof listDocumentsQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listDocuments({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listDocumentsQueryKey(options)
-});
-
-export const getChatSelectionQueryKey = (options: Options<GetChatSelectionData>) => createQueryKey('getChatSelection', options);
-
-/**
- * Get Chat Selection
- */
-export const getChatSelectionOptions = (options: Options<GetChatSelectionData>) => queryOptions<GetChatSelectionResponse, GetChatSelectionError, GetChatSelectionResponse, ReturnType<typeof getChatSelectionQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getChatSelection({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getChatSelectionQueryKey(options)
-});
-
-/**
- * Set Chat Selection
- */
-export const setChatSelectionMutation = (options?: Partial<Options<SetChatSelectionData>>): UseMutationOptions<SetChatSelectionResponse, SetChatSelectionError, Options<SetChatSelectionData>> => {
-    const mutationOptions: UseMutationOptions<SetChatSelectionResponse, SetChatSelectionError, Options<SetChatSelectionData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await setChatSelection({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const courseMindmapQueryKey = (options: Options<CourseMindmapData>) => createQueryKey('courseMindmap', options);
-
-/**
- * Course Mindmap
- *
- * Always all lectures. Generated on first request and cached until a lecture changes.
- */
-export const courseMindmapOptions = (options: Options<CourseMindmapData>) => queryOptions<CourseMindmapResponse, CourseMindmapError, CourseMindmapResponse, ReturnType<typeof courseMindmapQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await courseMindmap({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: courseMindmapQueryKey(options)
-});
-
-/**
- * Refresh Course Mindmap
- */
-export const refreshCourseMindmapMutation = (options?: Partial<Options<RefreshCourseMindmapData>>): UseMutationOptions<RefreshCourseMindmapResponse, RefreshCourseMindmapError, Options<RefreshCourseMindmapData>> => {
-    const mutationOptions: UseMutationOptions<RefreshCourseMindmapResponse, RefreshCourseMindmapError, Options<RefreshCourseMindmapData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await refreshCourseMindmap({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
 /**
  * Create Lecture
  *
@@ -378,41 +288,6 @@ export const getSummaryOptions = (options: Options<GetSummaryData>) => queryOpti
     queryKey: getSummaryQueryKey(options)
 });
 
-export const lectureMindmapQueryKey = (options: Options<LectureMindmapData>) => createQueryKey('lectureMindmap', options);
-
-/**
- * Lecture Mindmap
- */
-export const lectureMindmapOptions = (options: Options<LectureMindmapData>) => queryOptions<LectureMindmapResponse, LectureMindmapError, LectureMindmapResponse, ReturnType<typeof lectureMindmapQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await lectureMindmap({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: lectureMindmapQueryKey(options)
-});
-
-/**
- * Refresh Lecture Mindmap
- */
-export const refreshLectureMindmapMutation = (options?: Partial<Options<RefreshLectureMindmapData>>): UseMutationOptions<RefreshLectureMindmapResponse, RefreshLectureMindmapError, Options<RefreshLectureMindmapData>> => {
-    const mutationOptions: UseMutationOptions<RefreshLectureMindmapResponse, RefreshLectureMindmapError, Options<RefreshLectureMindmapData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await refreshLectureMindmap({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
 /**
  * Create English
  *
@@ -451,60 +326,6 @@ export const rerunChunkMutation = (options?: Partial<Options<RerunChunkData>>): 
     return mutationOptions;
 };
 
-/**
- * Create Document
- *
- * Upload slides or a scriptum (PDF). Parsed and made searchable in the background.
- */
-export const createDocumentMutation = (options?: Partial<Options<CreateDocumentData>>): UseMutationOptions<CreateDocumentResponse, CreateDocumentError, Options<CreateDocumentData>> => {
-    const mutationOptions: UseMutationOptions<CreateDocumentResponse, CreateDocumentError, Options<CreateDocumentData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createDocument({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Delete Document
- */
-export const deleteDocumentMutation = (options?: Partial<Options<DeleteDocumentData>>): UseMutationOptions<DeleteDocumentResponse, DeleteDocumentError, Options<DeleteDocumentData>> => {
-    const mutationOptions: UseMutationOptions<DeleteDocumentResponse, DeleteDocumentError, Options<DeleteDocumentData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await deleteDocument({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const getDocumentQueryKey = (options: Options<GetDocumentData>) => createQueryKey('getDocument', options);
-
-/**
- * Get Document
- */
-export const getDocumentOptions = (options: Options<GetDocumentData>) => queryOptions<GetDocumentResponse, GetDocumentError, GetDocumentResponse, ReturnType<typeof getDocumentQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getDocument({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: getDocumentQueryKey(options)
-});
-
 export const listJobsQueryKey = (options?: Options<ListJobsData>) => createQueryKey('listJobs', options);
 
 /**
@@ -542,35 +363,18 @@ export const retryJobMutation = (options?: Partial<Options<RetryJobData>>): UseM
     return mutationOptions;
 };
 
-/**
- * Chat
- *
- * Answer from the selected lectures/documents, with citations.
- */
-export const chatMutation = (options?: Partial<Options<ChatData>>): UseMutationOptions<ChatResponse2, ChatError, Options<ChatData>> => {
-    const mutationOptions: UseMutationOptions<ChatResponse2, ChatError, Options<ChatData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await chat({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const historyQueryKey = (options: Options<HistoryData>) => createQueryKey('history', options);
+export const searchQueryKey = (options: Options<SearchData>) => createQueryKey('search', options);
 
 /**
- * History
+ * Search
  *
- * The latest conversation for this screen (a lecture's chat, a document's, or the course's).
+ * Find a word or phrase in the German transcripts, their translations and the English scripts.
+ *
+ * Plain case-insensitive substring match: no AI, no cost, finds "Vererbung" inside "Mehrfachvererbung".
  */
-export const historyOptions = (options: Options<HistoryData>) => queryOptions<HistoryResponse, HistoryError, HistoryResponse, ReturnType<typeof historyQueryKey>>({
+export const searchOptions = (options: Options<SearchData>) => queryOptions<SearchResponse2, SearchError, SearchResponse2, ReturnType<typeof searchQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
-        const { data } = await history_({
+        const { data } = await search({
             ...options,
             ...queryKey[0],
             signal,
@@ -578,5 +382,5 @@ export const historyOptions = (options: Options<HistoryData>) => queryOptions<Hi
         });
         return data;
     },
-    queryKey: historyQueryKey(options)
+    queryKey: searchQueryKey(options)
 });

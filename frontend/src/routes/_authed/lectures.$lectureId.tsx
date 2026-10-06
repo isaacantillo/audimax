@@ -7,15 +7,11 @@ import {
   deleteLectureMutation,
   getLectureOptions,
   getSummaryOptions,
-  lectureMindmapOptions,
-  refreshLectureMindmapMutation,
   rerunChunkMutation,
 } from '@/client/@tanstack/react-query.gen'
 import type { EnglishChunk, EnglishParagraph, TranscriptDetails } from '@/client/types.gen'
-import { Chat } from '@/components/chat'
 import { ConfirmButton } from '@/components/confirm-button'
 import { Markdown } from '@/components/markdown'
-import { MindMap } from '@/components/mindmap'
 import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,16 +20,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useOriginalPlayer, useSimplePlayer } from '@/hooks/use-original-player'
 import { activeIndex, fmt, isBusy } from '@/lib/format'
 
-const TABS = ['transcript', 'summary', 'mindmap', 'chat'] as const
+const TABS = ['transcript', 'summary'] as const
 type Tab = (typeof TABS)[number]
 type Mode = 'original' | 'english'
 
 export const Route = createFileRoute('/_authed/lectures/$lectureId')({
-  validateSearch: (s: Record<string, unknown>): { tab?: Tab; t?: number; mode?: 'english' } => {
+  validateSearch: (s: Record<string, unknown>): { tab?: Tab; t?: number; et?: number; mode?: 'english' } => {
     const t = Number(s.t)
+    const et = Number(s.et)
     return {
       tab: TABS.find((x) => x === s.tab),
       t: s.t !== undefined && Number.isFinite(t) ? t : undefined,
+      et: s.et !== undefined && Number.isFinite(et) ? et : undefined,
       mode: s.mode === 'english' ? 'english' : undefined,
     }
   },
@@ -55,14 +53,19 @@ function LectureView() {
   const english = useSimplePlayer()
   const [mode, setMode] = useState<Mode>(search.mode ?? 'original')
 
-  // Arrived from a chat citation: cue the original recording at that moment (without playing).
+  // Arrived from a search hit: cue the original recording, or the English audio, at that moment
+  // (without playing). The seek waits for the audio's metadata if it has not loaded yet.
   const cued = useRef(false)
   useEffect(() => {
-    if (lecture && search.t !== undefined && !cued.current) {
+    if (!lecture || cued.current) return
+    if (search.t !== undefined) {
       cued.current = true
       original.seek(search.t, false)
+    } else if (search.et !== undefined && lecture.english?.audio_url) {
+      cued.current = true
+      english.seek(search.et, false)
     }
-  }, [lecture, search.t, original])
+  }, [lecture, search.t, search.et, original, english])
 
   const remove = useMutation({
     ...deleteLectureMutation(),
@@ -108,16 +111,6 @@ function LectureView() {
             <strong>Processing failed.</strong> {lecture.error} <Link to="/activity" className="underline">Retry from Activity</Link>.
           </p>
         )}
-        {lecture.documents.length > 0 && (
-          <div className="flex flex-wrap gap-2 text-sm">
-            Slides:
-            {lecture.documents.map((d) => (
-              <Link key={d.id} to="/documents/$documentId" params={{ documentId: d.id }} className="underline">
-                {d.title}
-              </Link>
-            ))}
-          </div>
-        )}
       </div>
 
       {parts.length > 0 && (
@@ -146,8 +139,6 @@ function LectureView() {
         <TabsList>
           <TabsTrigger value="transcript">Transcript</TabsTrigger>
           <TabsTrigger value="summary">Summary</TabsTrigger>
-          <TabsTrigger value="mindmap">Mind map</TabsTrigger>
-          <TabsTrigger value="chat">Chat</TabsTrigger>
         </TabsList>
         <TabsContent value="transcript" className="space-y-4">
           <EnglishPanel lecture={lecture} />
@@ -159,18 +150,6 @@ function LectureView() {
         </TabsContent>
         <TabsContent value="summary">
           <Summary lectureId={lectureId} ready={lecture.transcript_segments.length > 0} />
-        </TabsContent>
-        <TabsContent value="mindmap">
-          <LectureMindMap lectureId={lectureId} ready={lecture.transcript_segments.length > 0} />
-        </TabsContent>
-        <TabsContent value="chat">
-          <Chat
-            courseId={lecture.course_id}
-            lectureIds={[lecture.id]}
-            documentIds={[]}
-            scope={{ lecture_id: lecture.id }}
-            emptyHint="Ask about this lecture. Answers cite the exact moment."
-          />
         </TabsContent>
       </Tabs>
     </div>
@@ -335,22 +314,4 @@ function Summary({ lectureId, ready }: { lectureId: string; ready: boolean }) {
   const { data, isPending } = useQuery({ ...getSummaryOptions({ path: { lecture_id: lectureId } }), enabled: ready })
   if (!ready || isPending) return <p className="text-muted-foreground">The summary appears when processing finishes.</p>
   return data?.summary ? <Markdown>{data.summary}</Markdown> : <p className="text-muted-foreground">No summary yet.</p>
-}
-
-function LectureMindMap({ lectureId, ready }: { lectureId: string; ready: boolean }) {
-  const queryClient = useQueryClient()
-  const options = lectureMindmapOptions({ path: { lecture_id: lectureId } })
-  const { data, isPending } = useQuery({ ...options, enabled: ready })
-  const refresh = useMutation({ ...refreshLectureMindmapMutation(), onSuccess: (map) => queryClient.setQueryData(options.queryKey, map) })
-  if (!ready) return <p className="text-muted-foreground">The mind map appears once the transcript exists.</p>
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button variant="outline" size="sm" disabled={refresh.isPending} onClick={() => refresh.mutate({ path: { lecture_id: lectureId } })}>
-          {refresh.isPending ? 'Regenerating…' : 'Regenerate'}
-        </Button>
-      </div>
-      {isPending ? <Skeleton className="h-96" /> : data && <MindMap data={data} />}
-    </div>
-  )
 }

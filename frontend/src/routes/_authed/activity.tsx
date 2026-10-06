@@ -11,13 +11,11 @@ export const Route = createFileRoute('/_authed/activity')({ component: Activity 
 const TASK_LABEL: Record<string, string> = {
   transcribe_lecture: 'Transcribe',
   translate_lecture: 'Translate',
-  index_lecture: 'Summarise and index',
+  summarize_lecture: 'Summarise',
   english_plan: 'English: plan topics',
   english_write: 'English: write script',
   english_voice: 'English: record voice',
   english_assemble: 'English: assemble audio',
-  english_index: 'English: index script',
-  process_document: 'Read document',
 }
 
 function Activity() {
@@ -52,10 +50,8 @@ function Activity() {
                 <TableCell>
                   {j.lecture_id ? (
                     <Link to="/lectures/$lectureId" params={{ lectureId: j.lecture_id }} className="underline">{j.lecture_title}</Link>
-                  ) : j.document_id ? (
-                    <Link to="/documents/$documentId" params={{ documentId: j.document_id }} className="underline">{j.lecture_title}</Link>
                   ) : '—'}
-                  {(j.lecture_id || j.document_id) && !j.lecture_title && <span className="text-muted-foreground">(deleted)</span>}
+                  {j.lecture_id && !j.lecture_title && <span className="text-muted-foreground">(deleted)</span>}
                 </TableCell>
                 <TableCell className="max-w-md">
                   <Badge variant={j.status === 'failed' ? 'destructive' : j.status === 'succeeded' ? 'secondary' : 'default'} className={j.status === 'doing' ? 'animate-pulse' : ''}>

@@ -19,8 +19,6 @@ from app.config import settings
 from app.db import SessionLocal
 from app.models import (
     Chunk,
-    Document,
-    DocumentSection,
     GlossaryTerm,
     Lecture,
     LecturePart,
@@ -29,9 +27,9 @@ from app.models import (
 from app.models import (
     Unit as UnitRow,
 )
-from app.services import documents as documents_service
 from app.services import english_lecture as el
-from app.services import insights, llm, retrieval
+from app.services import llm
+from app.services import summary as summary_service
 from app.services.transcription import Unit, atranscribe, atranslate, build_units
 
 log = logging.getLogger("audimax.pipeline")
@@ -83,7 +81,7 @@ def _as_units(rows: list[UnitRow]) -> list[Unit]:
     return [Unit(r.n, r.start, r.end, r.text_de) for r in rows]
 
 
-# ---------- original lecture: transcribe -> translate -> index ----------
+# ---------- original lecture: transcribe -> translate -> summarize ----------
 
 @stage
 async def run_transcribe(lecture_id: uuid.UUID) -> None:
@@ -142,28 +140,17 @@ async def run_translate(lecture_id: uuid.UUID) -> None:
 
 
 @stage
-async def run_index(lecture_id: uuid.UUID) -> None:
-    """Summary + searchable transcript. After this the lecture is `ready`."""
-    await set_status(lecture_id, "indexing")
+async def run_summary(lecture_id: uuid.UUID) -> None:
+    """Study summary from the English translation. After this the lecture is `ready`."""
+    await set_status(lecture_id, "summarizing")
     rows = await _units(lecture_id)
     async with SessionLocal() as db:
         lecture = await db.get(Lecture, lecture_id)
         assert lecture is not None
-        title, course_id = lecture.title, lecture.course_id
-
-    english = " ".join(r.text_en or r.text_de for r in rows)
-    summary = await insights.summarize(title, english)
-    items = retrieval.windows([(r.n, r.start, r.text_en or r.text_de) for r in rows])
-    vectors = await llm.embed([i.text for i in items])
-
+        title = lecture.title
+    summary = await summary_service.summarize(title, " ".join(r.text_en or r.text_de for r in rows))
     async with SessionLocal() as db:
-        await retrieval.replace_passages(
-            db, course_id=course_id, lecture_id=lecture_id, kind="transcript", items=items, vectors=vectors
-        )
-        from app.models import Course
-
-        await db.execute(update(Lecture).where(Lecture.id == lecture_id).values(summary=summary, mindmap=None, status="ready", error=None))
-        await db.execute(update(Course).where(Course.id == course_id).values(mindmap=None))
+        await db.execute(update(Lecture).where(Lecture.id == lecture_id).values(summary=summary, status="ready", error=None))
         await db.commit()
 
 
@@ -339,23 +326,6 @@ async def run_english_assemble(lecture_id: uuid.UUID) -> None:
         await db.commit()
 
 
-@stage
-async def run_english_index(lecture_id: uuid.UUID) -> None:
-    """Make the English script citable by chat."""
-    async with SessionLocal() as db:
-        lecture = await db.get(Lecture, lecture_id)
-        assert lecture is not None
-        course_id = lecture.course_id
-        paragraphs = list((await db.execute(
-            select(Paragraph).where(Paragraph.lecture_id == lecture_id).order_by(Paragraph.chunk_n, Paragraph.n)
-        )).scalars())
-    items = [retrieval.Item(f"{p.chunk_n:02d}.{p.n:02d}", p.start, p.text) for p in paragraphs]
-    vectors = await llm.embed([i.text for i in items])
-    async with SessionLocal() as db:
-        await retrieval.replace_passages(db, course_id=course_id, lecture_id=lecture_id, kind="english", items=items, vectors=vectors)
-        await db.commit()
-
-
 async def reset_chunk(lecture_id: uuid.UUID, n: int) -> None:
     """Make one chunk be rewritten (and re-voiced) on the next english_write run."""
     async with SessionLocal() as db:
@@ -365,39 +335,3 @@ async def reset_chunk(lecture_id: uuid.UUID, n: int) -> None:
         await db.execute(delete(Paragraph).where(Paragraph.chunk_id == chunk.id))
         chunk.status, chunk.verified, chunk.attempts, chunk.verdict = "pending", False, 0, None
         await db.commit()
-
-
-# ---------- slides / scriptum ----------
-
-async def run_document(document_id: uuid.UUID) -> None:
-    async with SessionLocal() as db:
-        doc = await db.get(Document, document_id)
-        assert doc is not None
-        doc.status, doc.error = "processing", None
-        await db.commit()
-        key, filename, course_id = doc.file_key, doc.filename, doc.course_id
-    try:
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / filename
-            await asyncio.to_thread(storage.get_to_path, key, path)
-            page_count, sections = await asyncio.to_thread(documents_service.parse_pdf, path)
-        if not sections:
-            raise RuntimeError("no text found in the PDF (scanned pages are not supported yet)")
-        items = [
-            retrieval.Item(f"p{s.page}", None, piece)
-            for s in sections
-            for piece in retrieval.split_text(s.text)
-        ]
-        vectors = await llm.embed([i.text for i in items])
-        async with SessionLocal() as db:
-            await db.execute(delete(DocumentSection).where(DocumentSection.document_id == document_id))
-            db.add_all(DocumentSection(document_id=document_id, n=i, page=s.page, heading=s.heading, text=s.text) for i, s in enumerate(sections))
-            await retrieval.replace_passages(db, course_id=course_id, document_id=document_id, kind="slides", items=items, vectors=vectors)
-            await db.execute(update(Document).where(Document.id == document_id).values(status="ready", page_count=page_count, error=None))
-            await db.commit()
-    except Exception as exc:
-        log.exception("document %s failed", document_id)
-        async with SessionLocal() as db:
-            await db.execute(update(Document).where(Document.id == document_id).values(status="failed", error=str(exc)[:1000]))
-            await db.commit()
-        raise

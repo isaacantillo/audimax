@@ -29,28 +29,6 @@ export type ApiTokenResponse = {
 };
 
 /**
- * Body_create_document
- */
-export type BodyCreateDocument = {
-    /**
-     * Course Id
-     */
-    course_id: string;
-    /**
-     * Lecture Id
-     */
-    lecture_id?: string | null;
-    /**
-     * Title
-     */
-    title?: string;
-    /**
-     * File
-     */
-    file: Blob | File;
-};
-
-/**
  * Body_create_lecture
  */
 export type BodyCreateLecture = {
@@ -70,175 +48,6 @@ export type BodyCreateLecture = {
      * Files
      */
     files: Array<Blob | File>;
-};
-
-/**
- * ChatHistory
- */
-export type ChatHistory = {
-    /**
-     * Thread Id
-     */
-    thread_id: string | null;
-    /**
-     * Messages
-     */
-    messages: Array<ChatMessage>;
-};
-
-/**
- * ChatMessage
- */
-export type ChatMessage = {
-    /**
-     * Role
-     */
-    role: 'user' | 'assistant';
-    /**
-     * Content
-     */
-    content: string;
-    /**
-     * Sources
-     */
-    sources: Array<ChatSource>;
-};
-
-/**
- * ChatRequest
- */
-export type ChatRequest = {
-    /**
-     * Message
-     */
-    message: string;
-    /**
-     * Course Id
-     */
-    course_id: string;
-    /**
-     * Lecture Ids
-     */
-    lecture_ids?: Array<string>;
-    /**
-     * Document Ids
-     */
-    document_ids?: Array<string>;
-    /**
-     * Thread Id
-     */
-    thread_id?: string | null;
-    /**
-     * Web
-     */
-    web?: boolean;
-};
-
-/**
- * ChatResponse
- */
-export type ChatResponse = {
-    /**
-     * Thread Id
-     */
-    thread_id: string;
-    message: ChatMessage;
-};
-
-/**
- * ChatSelection
- *
- * The sources last used in a course's chat (remembered between visits).
- */
-export type ChatSelectionInput = {
-    /**
-     * Lecture Ids
-     */
-    lecture_ids?: Array<string>;
-    /**
-     * Document Ids
-     */
-    document_ids?: Array<string>;
-    /**
-     * Web
-     */
-    web?: boolean;
-};
-
-/**
- * ChatSelection
- *
- * The sources last used in a course's chat (remembered between visits).
- */
-export type ChatSelectionOutput = {
-    /**
-     * Lecture Ids
-     */
-    lecture_ids: Array<string>;
-    /**
-     * Document Ids
-     */
-    document_ids: Array<string>;
-    /**
-     * Web
-     */
-    web: boolean;
-};
-
-/**
- * ChatSource
- */
-export type ChatSource = {
-    /**
-     * Kind
-     */
-    kind: 'transcript' | 'english' | 'slides' | 'web';
-    /**
-     * Ref
-     */
-    ref: string;
-    /**
-     * Snippet
-     */
-    snippet: string;
-    /**
-     * Title
-     */
-    title: string;
-    /**
-     * Lecture Id
-     */
-    lecture_id: string | null;
-    /**
-     * Document Id
-     */
-    document_id: string | null;
-    /**
-     * Start
-     */
-    start: number | null;
-    /**
-     * Page
-     */
-    page: number | null;
-    /**
-     * Url
-     */
-    url: string | null;
-};
-
-/**
- * Course
- */
-export type Course = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Name
-     */
-    name: string;
 };
 
 /**
@@ -268,10 +77,6 @@ export type CourseSummary = {
      */
     lecture_count: number;
     /**
-     * Document Count
-     */
-    document_count: number;
-    /**
      * Last Activity At
      */
     last_activity_at: string;
@@ -279,82 +84,6 @@ export type CourseSummary = {
      * Has Active Jobs
      */
     has_active_jobs: boolean;
-};
-
-/**
- * DocumentDetails
- */
-export type DocumentDetails = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Title
-     */
-    title: string;
-    /**
-     * Type
-     */
-    type: 'slides';
-    status: FileProcessingStatus;
-    course: Course;
-    lecture: Lecture | null;
-    /**
-     * File Url
-     */
-    file_url: string;
-    /**
-     * Page Count
-     */
-    page_count: number;
-    /**
-     * Error
-     */
-    error: string | null;
-    /**
-     * Sections
-     */
-    sections: Array<DocumentSection>;
-};
-
-/**
- * DocumentSection
- */
-export type DocumentSection = {
-    /**
-     * Page
-     */
-    page: number;
-    /**
-     * Heading
-     */
-    heading: string | null;
-    /**
-     * Text
-     */
-    text: string;
-};
-
-/**
- * DocumentSummary
- */
-export type DocumentSummary = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Title
-     */
-    title: string;
-    /**
-     * Type
-     */
-    type: 'slides';
-    status: FileProcessingStatus;
-    course: Course;
-    lecture: Lecture | null;
 };
 
 /**
@@ -444,11 +173,6 @@ export type EnglishParagraph = {
 };
 
 /**
- * FileProcessingStatus
- */
-export type FileProcessingStatus = 'queued' | 'processing' | 'ready' | 'failed';
-
-/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -487,10 +211,6 @@ export type JobSummary = {
      */
     lecture_title: string | null;
     /**
-     * Document Id
-     */
-    document_id: string | null;
-    /**
      * Scheduled At
      */
     scheduled_at: string;
@@ -508,20 +228,6 @@ export type JobSummary = {
  * Lecture
  */
 export type Lecture = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Title
-     */
-    title: string;
-};
-
-/**
- * LectureDocument
- */
-export type LectureDocument = {
     /**
      * Id
      */
@@ -563,11 +269,11 @@ export type LecturePart = {
 /**
  * LectureStatus
  *
- * Original lecture: uploaded -> transcribing -> transcribed -> translating -> indexing -> ready.
+ * Original lecture: uploaded -> transcribing -> transcribed -> translating -> summarizing -> ready.
  * English lecture (optional, on top of ready): chunking -> scripting -> voicing -> assembling
  * -> english_ready. `failed` can follow any of them.
  */
-export type LectureStatus = 'uploaded' | 'transcribing' | 'transcribed' | 'translating' | 'indexing' | 'ready' | 'chunking' | 'scripting' | 'voicing' | 'assembling' | 'english_ready' | 'failed';
+export type LectureStatus = 'uploaded' | 'transcribing' | 'transcribed' | 'translating' | 'summarizing' | 'ready' | 'chunking' | 'scripting' | 'voicing' | 'assembling' | 'english_ready' | 'failed';
 
 /**
  * LectureSummary
@@ -581,10 +287,6 @@ export type LectureSummary = {
      * Title
      */
     title: string;
-    /**
-     * Document Count
-     */
-    document_count: number;
     /**
      * Summary
      */
@@ -619,53 +321,55 @@ export type LoginRequest = {
 };
 
 /**
- * MindMapEdge
+ * SearchHit
  */
-export type MindMapEdge = {
+export type SearchHit = {
     /**
-     * Source
+     * Lecture Id
      */
-    source: string;
+    lecture_id: string;
     /**
-     * Target
+     * Lecture Title
      */
-    target: string;
+    lecture_title: string;
     /**
-     * Relation
+     * Course Id
      */
-    relation: string;
+    course_id: string;
+    /**
+     * Kind
+     */
+    kind: 'transcript' | 'english';
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * Text
+     */
+    text: string;
+    /**
+     * Text Translated
+     */
+    text_translated: string | null;
 };
 
 /**
- * MindMapNode
+ * SearchResponse
  */
-export type MindMapNode = {
+export type SearchResponse = {
     /**
-     * Id
+     * Query
      */
-    id: string;
+    query: string;
     /**
-     * Label
+     * Hits
      */
-    label: string;
+    hits: Array<SearchHit>;
     /**
-     * Summary
+     * Truncated
      */
-    summary: string;
-};
-
-/**
- * MindMapResponse
- */
-export type MindMapResponse = {
-    /**
-     * Nodes
-     */
-    nodes: Array<MindMapNode>;
-    /**
-     * Edges
-     */
-    edges: Array<MindMapEdge>;
+    truncated: boolean;
 };
 
 /**
@@ -706,10 +410,6 @@ export type TranscriptDetails = {
      */
     transcript_segments: Array<TranscriptSegment>;
     english: EnglishLecture | null;
-    /**
-     * Documents
-     */
-    documents: Array<LectureDocument>;
 };
 
 /**
@@ -1013,158 +713,6 @@ export type ListLecturesResponses = {
 
 export type ListLecturesResponse = ListLecturesResponses[keyof ListLecturesResponses];
 
-export type ListDocumentsData = {
-    body?: never;
-    path: {
-        /**
-         * Course Id
-         */
-        course_id: string;
-    };
-    query?: never;
-    url: '/api/courses/{course_id}/documents';
-};
-
-export type ListDocumentsErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ListDocumentsError = ListDocumentsErrors[keyof ListDocumentsErrors];
-
-export type ListDocumentsResponses = {
-    /**
-     * Response List Documents
-     *
-     * Successful Response
-     */
-    200: Array<DocumentSummary>;
-};
-
-export type ListDocumentsResponse = ListDocumentsResponses[keyof ListDocumentsResponses];
-
-export type GetChatSelectionData = {
-    body?: never;
-    path: {
-        /**
-         * Course Id
-         */
-        course_id: string;
-    };
-    query?: never;
-    url: '/api/courses/{course_id}/chat-selection';
-};
-
-export type GetChatSelectionErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetChatSelectionError = GetChatSelectionErrors[keyof GetChatSelectionErrors];
-
-export type GetChatSelectionResponses = {
-    /**
-     * Successful Response
-     */
-    200: ChatSelectionOutput;
-};
-
-export type GetChatSelectionResponse = GetChatSelectionResponses[keyof GetChatSelectionResponses];
-
-export type SetChatSelectionData = {
-    body: ChatSelectionInput;
-    path: {
-        /**
-         * Course Id
-         */
-        course_id: string;
-    };
-    query?: never;
-    url: '/api/courses/{course_id}/chat-selection';
-};
-
-export type SetChatSelectionErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type SetChatSelectionError = SetChatSelectionErrors[keyof SetChatSelectionErrors];
-
-export type SetChatSelectionResponses = {
-    /**
-     * Successful Response
-     */
-    200: ChatSelectionOutput;
-};
-
-export type SetChatSelectionResponse = SetChatSelectionResponses[keyof SetChatSelectionResponses];
-
-export type CourseMindmapData = {
-    body?: never;
-    path: {
-        /**
-         * Course Id
-         */
-        course_id: string;
-    };
-    query?: never;
-    url: '/api/courses/{course_id}/mindmap';
-};
-
-export type CourseMindmapErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CourseMindmapError = CourseMindmapErrors[keyof CourseMindmapErrors];
-
-export type CourseMindmapResponses = {
-    /**
-     * Successful Response
-     */
-    200: MindMapResponse;
-};
-
-export type CourseMindmapResponse = CourseMindmapResponses[keyof CourseMindmapResponses];
-
-export type RefreshCourseMindmapData = {
-    body?: never;
-    path: {
-        /**
-         * Course Id
-         */
-        course_id: string;
-    };
-    query?: never;
-    url: '/api/courses/{course_id}/mindmap/refresh';
-};
-
-export type RefreshCourseMindmapErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type RefreshCourseMindmapError = RefreshCourseMindmapErrors[keyof RefreshCourseMindmapErrors];
-
-export type RefreshCourseMindmapResponses = {
-    /**
-     * Successful Response
-     */
-    200: MindMapResponse;
-};
-
-export type RefreshCourseMindmapResponse = RefreshCourseMindmapResponses[keyof RefreshCourseMindmapResponses];
-
 export type CreateLectureData = {
     body: BodyCreateLecture;
     path?: never;
@@ -1280,66 +828,6 @@ export type GetSummaryResponses = {
 
 export type GetSummaryResponse = GetSummaryResponses[keyof GetSummaryResponses];
 
-export type LectureMindmapData = {
-    body?: never;
-    path: {
-        /**
-         * Lecture Id
-         */
-        lecture_id: string;
-    };
-    query?: never;
-    url: '/api/lectures/{lecture_id}/mindmap';
-};
-
-export type LectureMindmapErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type LectureMindmapError = LectureMindmapErrors[keyof LectureMindmapErrors];
-
-export type LectureMindmapResponses = {
-    /**
-     * Successful Response
-     */
-    200: MindMapResponse;
-};
-
-export type LectureMindmapResponse = LectureMindmapResponses[keyof LectureMindmapResponses];
-
-export type RefreshLectureMindmapData = {
-    body?: never;
-    path: {
-        /**
-         * Lecture Id
-         */
-        lecture_id: string;
-    };
-    query?: never;
-    url: '/api/lectures/{lecture_id}/mindmap/refresh';
-};
-
-export type RefreshLectureMindmapErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type RefreshLectureMindmapError = RefreshLectureMindmapErrors[keyof RefreshLectureMindmapErrors];
-
-export type RefreshLectureMindmapResponses = {
-    /**
-     * Successful Response
-     */
-    200: MindMapResponse;
-};
-
-export type RefreshLectureMindmapResponse = RefreshLectureMindmapResponses[keyof RefreshLectureMindmapResponses];
-
 export type CreateEnglishData = {
     body?: never;
     path: {
@@ -1399,91 +887,6 @@ export type RerunChunkResponses = {
      */
     202: unknown;
 };
-
-export type CreateDocumentData = {
-    body: BodyCreateDocument;
-    path?: never;
-    query?: never;
-    url: '/api/documents';
-};
-
-export type CreateDocumentErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CreateDocumentError = CreateDocumentErrors[keyof CreateDocumentErrors];
-
-export type CreateDocumentResponses = {
-    /**
-     * Successful Response
-     */
-    201: DocumentSummary;
-};
-
-export type CreateDocumentResponse = CreateDocumentResponses[keyof CreateDocumentResponses];
-
-export type DeleteDocumentData = {
-    body?: never;
-    path: {
-        /**
-         * Document Id
-         */
-        document_id: string;
-    };
-    query?: never;
-    url: '/api/documents/{document_id}';
-};
-
-export type DeleteDocumentErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type DeleteDocumentError = DeleteDocumentErrors[keyof DeleteDocumentErrors];
-
-export type DeleteDocumentResponses = {
-    /**
-     * Successful Response
-     */
-    204: void;
-};
-
-export type DeleteDocumentResponse = DeleteDocumentResponses[keyof DeleteDocumentResponses];
-
-export type GetDocumentData = {
-    body?: never;
-    path: {
-        /**
-         * Document Id
-         */
-        document_id: string;
-    };
-    query?: never;
-    url: '/api/documents/{document_id}';
-};
-
-export type GetDocumentErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetDocumentError = GetDocumentErrors[keyof GetDocumentErrors];
-
-export type GetDocumentResponses = {
-    /**
-     * Successful Response
-     */
-    200: DocumentDetails;
-};
-
-export type GetDocumentResponse = GetDocumentResponses[keyof GetDocumentResponses];
 
 export type ListJobsData = {
     body?: never;
@@ -1551,65 +954,40 @@ export type RetryJobResponses = {
     202: unknown;
 };
 
-export type ChatData = {
-    body: ChatRequest;
-    path?: never;
-    query?: never;
-    url: '/api/chat';
-};
-
-export type ChatErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ChatError = ChatErrors[keyof ChatErrors];
-
-export type ChatResponses = {
-    /**
-     * Successful Response
-     */
-    200: ChatResponse;
-};
-
-export type ChatResponse2 = ChatResponses[keyof ChatResponses];
-
-export type HistoryData = {
+export type SearchData = {
     body?: never;
     path?: never;
     query: {
         /**
+         * Q
+         */
+        q: string;
+        /**
          * Course Id
          */
-        course_id: string;
+        course_id?: string | null;
         /**
-         * Lecture Id
+         * Limit
          */
-        lecture_id?: string | null;
-        /**
-         * Document Id
-         */
-        document_id?: string | null;
+        limit?: number;
     };
-    url: '/api/chat/history';
+    url: '/api/search';
 };
 
-export type HistoryErrors = {
+export type SearchErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type HistoryError = HistoryErrors[keyof HistoryErrors];
+export type SearchError = SearchErrors[keyof SearchErrors];
 
-export type HistoryResponses = {
+export type SearchResponses = {
     /**
      * Successful Response
      */
-    200: ChatHistory;
+    200: SearchResponse;
 };
 
-export type HistoryResponse = HistoryResponses[keyof HistoryResponses];
+export type SearchResponse2 = SearchResponses[keyof SearchResponses];

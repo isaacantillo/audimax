@@ -5,9 +5,9 @@ from sqlalchemy import func, select
 from app import storage
 from app.db import SessionLocal
 from app.jobs import pipeline as p
-from app.models import Chunk, Lecture, LecturePart, Paragraph, Passage, Unit
+from app.models import Chunk, Lecture, LecturePart, Paragraph, Unit
 from app.services import english_lecture as el
-from app.services import llm, retrieval, stub
+from app.services import llm, stub
 
 
 async def lecture_row(lecture_id) -> Lecture:
@@ -18,7 +18,7 @@ async def lecture_row(lecture_id) -> Lecture:
 async def run_original(lecture_id):
     await p.run_transcribe(lecture_id)
     await p.run_translate(lecture_id)
-    await p.run_index(lecture_id)
+    await p.run_summary(lecture_id)
 
 
 async def run_english(lecture_id):
@@ -26,7 +26,6 @@ async def run_english(lecture_id):
     await p.run_english_write(lecture_id)
     await p.run_english_voice(lecture_id)
     await p.run_english_assemble(lecture_id)
-    await p.run_english_index(lecture_id)
 
 
 async def test_original_pipeline_joins_parts_on_one_timeline(lecture_id):
@@ -48,12 +47,10 @@ async def test_original_pipeline_joins_parts_on_one_timeline(lecture_id):
     # A sentence cut off at the end of recording 1 continues into recording 2.
     assert any(u.start < offset < u.end for u in units)
 
-    await p.run_index(lecture_id)
+    await p.run_summary(lecture_id)
     lecture = await lecture_row(lecture_id)
     assert lecture.status == "ready"
     assert "Stub summary" in lecture.summary
-    async with SessionLocal() as db:
-        assert await db.scalar(select(func.count()).select_from(Passage).where(Passage.kind == "transcript")) > 0
 
 
 async def test_english_lecture_end_to_end(lecture_id):
@@ -79,10 +76,6 @@ async def test_english_lecture_end_to_end(lecture_id):
         capture_output=True, text=True, check=True).stdout)
     assert abs(seconds - lecture.english_duration) < 1.5
     assert paragraphs[-1].end <= seconds + 0.5
-
-    # Every paragraph points back into the German source.
-    async with SessionLocal() as db:
-        assert await db.scalar(select(func.count()).select_from(Passage).where(Passage.kind == "english")) == len(paragraphs)
 
 
 async def test_tts_falls_back_for_the_whole_lecture(lecture_id, monkeypatch):
@@ -151,11 +144,3 @@ async def test_failure_marks_the_lecture_with_the_reason(lecture_id, monkeypatch
         pass
     lecture = await lecture_row(lecture_id)
     assert lecture.status == "failed" and "provider returned 400" in lecture.error
-
-
-async def test_retrieval_finds_the_relevant_passage(lecture_id):
-    await run_original(lecture_id)
-    async with SessionLocal() as db:
-        hits = await retrieval.search(db, "Softwareentwicklung", lecture_ids=[lecture_id], document_ids=[], k=3)
-    assert hits and all(h.lecture_id == lecture_id for h in hits)
-    assert "Softwareentwicklung" in hits[0].text

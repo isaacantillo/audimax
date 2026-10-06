@@ -10,7 +10,6 @@ class Course(ApiModel):
 
 class CourseSummary(Course):
     lecture_count: int
-    document_count: int
     last_activity_at: datetime.datetime
     has_active_jobs: bool
 

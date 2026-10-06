@@ -13,9 +13,9 @@ import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as AuthedActivityRouteImport } from './routes/_authed/activity'
+import { Route as AuthedSearchRouteImport } from './routes/_authed/search'
 import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
 import { Route as AuthedCoursesCourseIdRouteImport } from './routes/_authed/courses.$courseId'
-import { Route as AuthedDocumentsDocumentIdRouteImport } from './routes/_authed/documents.$documentId'
 import { Route as AuthedLecturesLectureIdRouteImport } from './routes/_authed/lectures.$lectureId'
 
 const AuthedRoute = AuthedRouteImport.update({
@@ -37,6 +37,11 @@ const AuthedActivityRoute = AuthedActivityRouteImport.update({
   path: '/activity',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedSearchRoute = AuthedSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -47,12 +52,6 @@ const AuthedCoursesCourseIdRoute = AuthedCoursesCourseIdRouteImport.update({
   path: '/courses/$courseId',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedDocumentsDocumentIdRoute =
-  AuthedDocumentsDocumentIdRouteImport.update({
-    id: '/documents/$documentId',
-    path: '/documents/$documentId',
-    getParentRoute: () => AuthedRoute,
-  } as any)
 const AuthedLecturesLectureIdRoute = AuthedLecturesLectureIdRouteImport.update({
   id: '/lectures/$lectureId',
   path: '/lectures/$lectureId',
@@ -63,18 +62,18 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/login': typeof LoginRoute
   '/activity': typeof AuthedActivityRoute
+  '/search': typeof AuthedSearchRoute
   '/settings': typeof AuthedSettingsRoute
   '/courses/$courseId': typeof AuthedCoursesCourseIdRoute
-  '/documents/$documentId': typeof AuthedDocumentsDocumentIdRoute
   '/lectures/$lectureId': typeof AuthedLecturesLectureIdRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/activity': typeof AuthedActivityRoute
+  '/search': typeof AuthedSearchRoute
   '/settings': typeof AuthedSettingsRoute
   '/': typeof AuthedIndexRoute
   '/courses/$courseId': typeof AuthedCoursesCourseIdRoute
-  '/documents/$documentId': typeof AuthedDocumentsDocumentIdRoute
   '/lectures/$lectureId': typeof AuthedLecturesLectureIdRoute
 }
 export interface FileRoutesById {
@@ -82,10 +81,10 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authed/activity': typeof AuthedActivityRoute
+  '/_authed/search': typeof AuthedSearchRoute
   '/_authed/settings': typeof AuthedSettingsRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/courses/$courseId': typeof AuthedCoursesCourseIdRoute
-  '/_authed/documents/$documentId': typeof AuthedDocumentsDocumentIdRoute
   '/_authed/lectures/$lectureId': typeof AuthedLecturesLectureIdRoute
 }
 export interface FileRouteTypes {
@@ -94,28 +93,28 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/activity'
+    | '/search'
     | '/settings'
     | '/courses/$courseId'
-    | '/documents/$documentId'
     | '/lectures/$lectureId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/activity'
+    | '/search'
     | '/settings'
     | '/'
     | '/courses/$courseId'
-    | '/documents/$documentId'
     | '/lectures/$lectureId'
   id:
     | '__root__'
     | '/_authed'
     | '/login'
     | '/_authed/activity'
+    | '/_authed/search'
     | '/_authed/settings'
     | '/_authed/'
     | '/_authed/courses/$courseId'
-    | '/_authed/documents/$documentId'
     | '/_authed/lectures/$lectureId'
   fileRoutesById: FileRoutesById
 }
@@ -154,6 +153,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedActivityRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/search': {
+      id: '/_authed/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof AuthedSearchRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/settings': {
       id: '/_authed/settings'
       path: '/settings'
@@ -168,13 +174,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedCoursesCourseIdRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/documents/$documentId': {
-      id: '/_authed/documents/$documentId'
-      path: '/documents/$documentId'
-      fullPath: '/documents/$documentId'
-      preLoaderRoute: typeof AuthedDocumentsDocumentIdRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/lectures/$lectureId': {
       id: '/_authed/lectures/$lectureId'
       path: '/lectures/$lectureId'
@@ -187,19 +186,19 @@ declare module '@tanstack/react-router' {
 
 interface AuthedRouteChildren {
   AuthedActivityRoute: typeof AuthedActivityRoute
+  AuthedSearchRoute: typeof AuthedSearchRoute
   AuthedSettingsRoute: typeof AuthedSettingsRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedCoursesCourseIdRoute: typeof AuthedCoursesCourseIdRoute
-  AuthedDocumentsDocumentIdRoute: typeof AuthedDocumentsDocumentIdRoute
   AuthedLecturesLectureIdRoute: typeof AuthedLecturesLectureIdRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedActivityRoute: AuthedActivityRoute,
+  AuthedSearchRoute: AuthedSearchRoute,
   AuthedSettingsRoute: AuthedSettingsRoute,
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedCoursesCourseIdRoute: AuthedCoursesCourseIdRoute,
-  AuthedDocumentsDocumentIdRoute: AuthedDocumentsDocumentIdRoute,
   AuthedLecturesLectureIdRoute: AuthedLecturesLectureIdRoute,
 }
 

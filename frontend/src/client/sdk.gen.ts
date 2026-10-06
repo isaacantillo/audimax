@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ChatData, ChatErrors, ChatResponses, CourseMindmapData, CourseMindmapErrors, CourseMindmapResponses, CreateApiTokenData, CreateApiTokenErrors, CreateApiTokenResponses, CreateCourseData, CreateCourseErrors, CreateCourseResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateEnglishData, CreateEnglishErrors, CreateEnglishResponses, CreateLectureData, CreateLectureErrors, CreateLectureResponses, DeleteCourseData, DeleteCourseErrors, DeleteCourseResponses, DeleteDocumentData, DeleteDocumentErrors, DeleteDocumentResponses, DeleteLectureData, DeleteLectureErrors, DeleteLectureResponses, GetChatSelectionData, GetChatSelectionErrors, GetChatSelectionResponses, GetCourseData, GetCourseErrors, GetCourseResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetLectureData, GetLectureErrors, GetLectureResponses, GetMeData, GetMeResponses, GetSummaryData, GetSummaryErrors, GetSummaryResponses, HealthData, HealthResponses, HistoryData, HistoryErrors, HistoryResponses, LectureMindmapData, LectureMindmapErrors, LectureMindmapResponses, ListCoursesData, ListCoursesResponses, ListDocumentsData, ListDocumentsErrors, ListDocumentsResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListLecturesData, ListLecturesErrors, ListLecturesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, RefreshCourseMindmapData, RefreshCourseMindmapErrors, RefreshCourseMindmapResponses, RefreshLectureMindmapData, RefreshLectureMindmapErrors, RefreshLectureMindmapResponses, RerunChunkData, RerunChunkErrors, RerunChunkResponses, RetryJobData, RetryJobErrors, RetryJobResponses, SetChatSelectionData, SetChatSelectionErrors, SetChatSelectionResponses } from './types.gen';
+import type { CreateApiTokenData, CreateApiTokenErrors, CreateApiTokenResponses, CreateCourseData, CreateCourseErrors, CreateCourseResponses, CreateEnglishData, CreateEnglishErrors, CreateEnglishResponses, CreateLectureData, CreateLectureErrors, CreateLectureResponses, DeleteCourseData, DeleteCourseErrors, DeleteCourseResponses, DeleteLectureData, DeleteLectureErrors, DeleteLectureResponses, GetCourseData, GetCourseErrors, GetCourseResponses, GetLectureData, GetLectureErrors, GetLectureResponses, GetMeData, GetMeResponses, GetSummaryData, GetSummaryErrors, GetSummaryResponses, HealthData, HealthResponses, ListCoursesData, ListCoursesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListLecturesData, ListLecturesErrors, ListLecturesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, RerunChunkData, RerunChunkErrors, RerunChunkResponses, RetryJobData, RetryJobErrors, RetryJobResponses, SearchData, SearchErrors, SearchResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -92,40 +92,6 @@ export const getCourse = <ThrowOnError extends boolean = false>(options: Options
 export const listLectures = <ThrowOnError extends boolean = false>(options: Options<ListLecturesData, ThrowOnError>): RequestResult<ListLecturesResponses, ListLecturesErrors, ThrowOnError> => (options.client ?? client).get<ListLecturesResponses, ListLecturesErrors, ThrowOnError>({ url: '/api/courses/{course_id}/lectures', ...options });
 
 /**
- * List Documents
- */
-export const listDocuments = <ThrowOnError extends boolean = false>(options: Options<ListDocumentsData, ThrowOnError>): RequestResult<ListDocumentsResponses, ListDocumentsErrors, ThrowOnError> => (options.client ?? client).get<ListDocumentsResponses, ListDocumentsErrors, ThrowOnError>({ url: '/api/courses/{course_id}/documents', ...options });
-
-/**
- * Get Chat Selection
- */
-export const getChatSelection = <ThrowOnError extends boolean = false>(options: Options<GetChatSelectionData, ThrowOnError>): RequestResult<GetChatSelectionResponses, GetChatSelectionErrors, ThrowOnError> => (options.client ?? client).get<GetChatSelectionResponses, GetChatSelectionErrors, ThrowOnError>({ url: '/api/courses/{course_id}/chat-selection', ...options });
-
-/**
- * Set Chat Selection
- */
-export const setChatSelection = <ThrowOnError extends boolean = false>(options: Options<SetChatSelectionData, ThrowOnError>): RequestResult<SetChatSelectionResponses, SetChatSelectionErrors, ThrowOnError> => (options.client ?? client).put<SetChatSelectionResponses, SetChatSelectionErrors, ThrowOnError>({
-    url: '/api/courses/{course_id}/chat-selection',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Course Mindmap
- *
- * Always all lectures. Generated on first request and cached until a lecture changes.
- */
-export const courseMindmap = <ThrowOnError extends boolean = false>(options: Options<CourseMindmapData, ThrowOnError>): RequestResult<CourseMindmapResponses, CourseMindmapErrors, ThrowOnError> => (options.client ?? client).get<CourseMindmapResponses, CourseMindmapErrors, ThrowOnError>({ url: '/api/courses/{course_id}/mindmap', ...options });
-
-/**
- * Refresh Course Mindmap
- */
-export const refreshCourseMindmap = <ThrowOnError extends boolean = false>(options: Options<RefreshCourseMindmapData, ThrowOnError>): RequestResult<RefreshCourseMindmapResponses, RefreshCourseMindmapErrors, ThrowOnError> => (options.client ?? client).post<RefreshCourseMindmapResponses, RefreshCourseMindmapErrors, ThrowOnError>({ url: '/api/courses/{course_id}/mindmap/refresh', ...options });
-
-/**
  * Create Lecture
  *
  * Upload one lecture as one or more recordings (they are joined in filename order).
@@ -156,16 +122,6 @@ export const getLecture = <ThrowOnError extends boolean = false>(options: Option
 export const getSummary = <ThrowOnError extends boolean = false>(options: Options<GetSummaryData, ThrowOnError>): RequestResult<GetSummaryResponses, GetSummaryErrors, ThrowOnError> => (options.client ?? client).get<GetSummaryResponses, GetSummaryErrors, ThrowOnError>({ url: '/api/lectures/{lecture_id}/summary', ...options });
 
 /**
- * Lecture Mindmap
- */
-export const lectureMindmap = <ThrowOnError extends boolean = false>(options: Options<LectureMindmapData, ThrowOnError>): RequestResult<LectureMindmapResponses, LectureMindmapErrors, ThrowOnError> => (options.client ?? client).get<LectureMindmapResponses, LectureMindmapErrors, ThrowOnError>({ url: '/api/lectures/{lecture_id}/mindmap', ...options });
-
-/**
- * Refresh Lecture Mindmap
- */
-export const refreshLectureMindmap = <ThrowOnError extends boolean = false>(options: Options<RefreshLectureMindmapData, ThrowOnError>): RequestResult<RefreshLectureMindmapResponses, RefreshLectureMindmapErrors, ThrowOnError> => (options.client ?? client).post<RefreshLectureMindmapResponses, RefreshLectureMindmapErrors, ThrowOnError>({ url: '/api/lectures/{lecture_id}/mindmap/refresh', ...options });
-
-/**
  * Create English
  *
  * Build (or rebuild from scratch) the English re-performed lecture. Costs TTS money.
@@ -180,31 +136,6 @@ export const createEnglish = <ThrowOnError extends boolean = false>(options: Opt
 export const rerunChunk = <ThrowOnError extends boolean = false>(options: Options<RerunChunkData, ThrowOnError>): RequestResult<RerunChunkResponses, RerunChunkErrors, ThrowOnError> => (options.client ?? client).post<RerunChunkResponses, RerunChunkErrors, ThrowOnError>({ url: '/api/lectures/{lecture_id}/english/chunks/{n}/rerun', ...options });
 
 /**
- * Create Document
- *
- * Upload slides or a scriptum (PDF). Parsed and made searchable in the background.
- */
-export const createDocument = <ThrowOnError extends boolean = false>(options: Options<CreateDocumentData, ThrowOnError>): RequestResult<CreateDocumentResponses, CreateDocumentErrors, ThrowOnError> => (options.client ?? client).post<CreateDocumentResponses, CreateDocumentErrors, ThrowOnError>({
-    ...formDataBodySerializer,
-    url: '/api/documents',
-    ...options,
-    headers: {
-        'Content-Type': null,
-        ...options.headers
-    }
-});
-
-/**
- * Delete Document
- */
-export const deleteDocument = <ThrowOnError extends boolean = false>(options: Options<DeleteDocumentData, ThrowOnError>): RequestResult<DeleteDocumentResponses, DeleteDocumentErrors, ThrowOnError> => (options.client ?? client).delete<DeleteDocumentResponses, DeleteDocumentErrors, ThrowOnError>({ url: '/api/documents/{document_id}', ...options });
-
-/**
- * Get Document
- */
-export const getDocument = <ThrowOnError extends boolean = false>(options: Options<GetDocumentData, ThrowOnError>): RequestResult<GetDocumentResponses, GetDocumentErrors, ThrowOnError> => (options.client ?? client).get<GetDocumentResponses, GetDocumentErrors, ThrowOnError>({ url: '/api/documents/{document_id}', ...options });
-
-/**
  * List Jobs
  */
 export const listJobs = <ThrowOnError extends boolean = false>(options?: Options<ListJobsData, ThrowOnError>): RequestResult<ListJobsResponses, ListJobsErrors, ThrowOnError> => (options?.client ?? client).get<ListJobsResponses, ListJobsErrors, ThrowOnError>({ url: '/api/jobs', ...options });
@@ -217,22 +148,10 @@ export const listJobs = <ThrowOnError extends boolean = false>(options?: Options
 export const retryJob = <ThrowOnError extends boolean = false>(options: Options<RetryJobData, ThrowOnError>): RequestResult<RetryJobResponses, RetryJobErrors, ThrowOnError> => (options.client ?? client).post<RetryJobResponses, RetryJobErrors, ThrowOnError>({ url: '/api/jobs/{job_id}/retry', ...options });
 
 /**
- * Chat
+ * Search
  *
- * Answer from the selected lectures/documents, with citations.
- */
-export const chat = <ThrowOnError extends boolean = false>(options: Options<ChatData, ThrowOnError>): RequestResult<ChatResponses, ChatErrors, ThrowOnError> => (options.client ?? client).post<ChatResponses, ChatErrors, ThrowOnError>({
-    url: '/api/chat',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * History
+ * Find a word or phrase in the German transcripts, their translations and the English scripts.
  *
- * The latest conversation for this screen (a lecture's chat, a document's, or the course's).
+ * Plain case-insensitive substring match: no AI, no cost, finds "Vererbung" inside "Mehrfachvererbung".
  */
-export const history_ = <ThrowOnError extends boolean = false>(options: Options<HistoryData, ThrowOnError>): RequestResult<HistoryResponses, HistoryErrors, ThrowOnError> => (options.client ?? client).get<HistoryResponses, HistoryErrors, ThrowOnError>({ url: '/api/chat/history', ...options });
+export const search = <ThrowOnError extends boolean = false>(options: Options<SearchData, ThrowOnError>): RequestResult<SearchResponses, SearchErrors, ThrowOnError> => (options.client ?? client).get<SearchResponses, SearchErrors, ThrowOnError>({ url: '/api/search', ...options });

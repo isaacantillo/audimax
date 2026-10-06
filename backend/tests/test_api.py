@@ -1,4 +1,5 @@
-import pymupdf
+import uuid
+
 import pytest
 
 from app.db import SessionLocal
@@ -16,16 +17,23 @@ def deferred(monkeypatch):
     async def fake_defer(task, lecture_id, **kw):
         calls.append((task.name, {"lecture_id": lecture_id, **kw}))
 
-    async def fake_document(**kw):
-        calls.append(("process_document", kw))
-
     monkeypatch.setattr(tasks, "defer", fake_defer)
-    monkeypatch.setattr(tasks.process_document, "defer_async", fake_document)
     return calls
 
 
+async def run_original(lecture_id):
+    await p.run_transcribe(lecture_id)
+    await p.run_translate(lecture_id)
+    await p.run_summary(lecture_id)
+
+
+async def run_english(lecture_id):
+    for stage in (p.run_english_plan, p.run_english_write, p.run_english_voice, p.run_english_assemble):
+        await stage(lecture_id)
+
+
 async def test_everything_requires_login(client):
-    for path in ("/api/courses", "/api/jobs", "/api/media/lectures/x"):
+    for path in ("/api/courses", "/api/jobs", "/api/search?q=hello", "/api/media/lectures/x"):
         assert (await client.get(path)).status_code == 401
     assert (await client.get("/api/health")).status_code == 200
 
@@ -53,11 +61,8 @@ async def test_upload_process_and_read_a_lecture(authed, tmp_path, deferred):
     # The English version cannot be requested before the lecture is processed.
     assert (await authed.post(f"/api/lectures/{lecture['id']}/english")).status_code == 409
 
-    import uuid
     lid = uuid.UUID(lecture["id"])
-    await p.run_transcribe(lid)
-    await p.run_translate(lid)
-    await p.run_index(lid)
+    await run_original(lid)
 
     detail = (await authed.get(f"/api/lectures/{lecture['id']}")).json()
     assert detail["status"] == "ready" and len(detail["transcript_segments"]) > 10
@@ -68,7 +73,7 @@ async def test_upload_process_and_read_a_lecture(authed, tmp_path, deferred):
     # English lecture
     assert (await authed.post(f"/api/lectures/{lecture['id']}/english")).status_code == 202
     assert (await authed.get(f"/api/lectures/{lecture['id']}")).json()["status"] == "chunking"
-    for stage in (p.run_english_plan, p.run_english_write, p.run_english_voice, p.run_english_assemble, p.run_english_index):
+    for stage in (p.run_english_plan, p.run_english_write, p.run_english_voice, p.run_english_assemble):
         await stage(lid)
 
     detail = (await authed.get(f"/api/lectures/{lecture['id']}")).json()
@@ -105,87 +110,52 @@ async def test_upload_validation(authed, deferred):
     assert deferred == []
 
 
-async def test_mindmaps_and_course_scope(authed, lecture_id):
-    await p.run_transcribe(lecture_id)
-    await p.run_translate(lecture_id)
-    await p.run_index(lecture_id)
-    async with SessionLocal() as db:
-        course_id = (await db.get(Lecture, lecture_id)).course_id  # type: ignore[union-attr]
-
-    lecture_map = (await authed.get(f"/api/lectures/{lecture_id}/mindmap")).json()
-    assert lecture_map["nodes"] and lecture_map["edges"]
-    ids = {n["id"] for n in lecture_map["nodes"]}
-    assert all(e["source"] in ids and e["target"] in ids for e in lecture_map["edges"])
-
-    course_map = (await authed.get(f"/api/courses/{course_id}/mindmap")).json()
-    assert course_map["nodes"]
-    # Cached: the same ids come back until refreshed.
-    assert (await authed.get(f"/api/courses/{course_id}/mindmap")).json() == course_map
-    assert (await authed.post(f"/api/courses/{course_id}/mindmap/refresh")).json() != course_map
-
-
-async def test_chat_answers_with_sources_and_remembers_selection(authed, lecture_id):
-    await p.run_transcribe(lecture_id)
-    await p.run_translate(lecture_id)
-    await p.run_index(lecture_id)
+async def test_search_finds_words_in_transcripts_and_english_scripts(authed, lecture_id):
+    await run_original(lecture_id)
+    await run_english(lecture_id)
     async with SessionLocal() as db:
         course_id = str((await db.get(Lecture, lecture_id)).course_id)  # type: ignore[union-attr]
 
-    body = {"message": "What is Softwareentwicklung?", "course_id": course_id, "lecture_ids": [str(lecture_id)]}
-    r = (await authed.post("/api/chat", json=body)).json()
-    assert r["message"]["role"] == "assistant"
-    sources = r["message"]["sources"]
-    assert sources and sources[0]["kind"] == "transcript" and sources[0]["lecture_id"] == str(lecture_id)
-    assert sources[0]["title"] == "SE1 L1" and sources[0]["start"] is not None
+    r = (await authed.get("/api/search", params={"q": "softwareentwicklung"})).json()  # case-insensitive
+    kinds = {h["kind"] for h in r["hits"]}
+    assert kinds == {"transcript", "english"}
+    german = [h for h in r["hits"] if h["kind"] == "transcript"]
+    assert german and all("oftwareentwicklung" in (h["text"] + (h["text_translated"] or "")) for h in german)
+    assert all(h["lecture_id"] == str(lecture_id) and h["lecture_title"] == "SE1 L1" for h in r["hits"])
+    # Hits come in timeline order, so results read like the lecture.
+    starts = [h["start"] for h in german]
+    assert starts == sorted(starts)
 
-    # Follow-up in the same thread, then the history screen shows both turns.
-    await authed.post("/api/chat", json={**body, "thread_id": r["thread_id"], "message": "And more?"})
-    history = (await authed.get("/api/chat/history", params={"course_id": course_id, "lecture_id": str(lecture_id)})).json()
-    assert history["thread_id"] == r["thread_id"]
-    assert [m["role"] for m in history["messages"]] == ["user", "assistant", "user", "assistant"]
-    # A course-level chat is a different conversation.
-    assert (await authed.get("/api/chat/history", params={"course_id": course_id})).json()["messages"] == []
+    # A part of a word matches too ("Vererbung" inside "Mehrfachvererbung").
+    assert (await authed.get("/api/search", params={"q": "entwicklung"})).json()["hits"]
 
-    # Nothing selected -> no sources, and an honest answer rather than an error.
-    empty = (await authed.post("/api/chat", json={"message": "hi", "course_id": course_id})).json()
-    assert empty["message"]["sources"] == []
+    # Filtering by course; another course has nothing.
+    assert (await authed.get("/api/search", params={"q": "Wort", "course_id": course_id})).json()["hits"]
+    other = (await authed.post("/api/courses", json={"name": "Other"})).json()
+    assert (await authed.get("/api/search", params={"q": "Wort", "course_id": other["id"]})).json()["hits"] == []
 
-    # Web search without a key is refused clearly.
-    assert (await authed.post("/api/chat", json={**body, "web": True})).status_code == 422
+    # Wildcards are matched literally, not as "everything".
+    assert (await authed.get("/api/search", params={"q": "%%"})).json()["hits"] == []
+    assert (await authed.get("/api/search", params={"q": "W_rt"})).json()["hits"] == []
 
-    sel = {"lecture_ids": [str(lecture_id)], "document_ids": [], "web": False}
-    assert (await authed.put(f"/api/courses/{course_id}/chat-selection", json=sel)).status_code == 200
-    assert (await authed.get(f"/api/courses/{course_id}/chat-selection")).json() == sel
+    # Limits are reported, not silent.
+    small = (await authed.get("/api/search", params={"q": "Wort", "limit": 3})).json()
+    assert small["truncated"] is True and len([h for h in small["hits"] if h["kind"] == "transcript"]) == 3
+
+    assert (await authed.get("/api/search", params={"q": "x"})).status_code == 422, "one letter would match everything"
+    assert (await authed.get("/api/search", params={"q": "zzzzqqq"})).json() == {"query": "zzzzqqq", "hits": [], "truncated": False}
 
 
-async def test_slides_are_parsed_and_searchable(authed, lecture_id, tmp_path, deferred):
-    async with SessionLocal() as db:
-        course_id = str((await db.get(Lecture, lecture_id)).course_id)  # type: ignore[union-attr]
-    pdf = tmp_path / "slides.pdf"
-    doc = pymupdf.open()
-    for text in ("Vererbung\n\nInheritance lets a class reuse another class.", "Polymorphismus\n\nOne interface, many implementations."):
-        doc.new_page().insert_text((72, 72), text)
-    doc.save(pdf)
-
-    r = await authed.post("/api/documents", data={"course_id": course_id, "lecture_id": str(lecture_id)}, files={"file": ("slides.pdf", pdf.read_bytes(), "application/pdf")})
-    assert r.status_code == 201 and r.json()["lecture"]["id"] == str(lecture_id)
-    document_id = r.json()["id"]
-    assert deferred[-1] == ("process_document", {"document_id": document_id})
-
-    import uuid
-    await p.run_document(uuid.UUID(document_id))
-    detail = (await authed.get(f"/api/documents/{document_id}")).json()
-    assert detail["status"] == "ready" and detail["page_count"] == 2 and len(detail["sections"]) == 2
-    assert detail["file_url"].startswith("/api/media/documents/")
-    assert (await authed.get(detail["file_url"])).headers["content-type"] == "application/pdf"
-    assert (await authed.get(f"/api/lectures/{lecture_id}")).json()["documents"][0]["id"] == document_id
-    assert (await authed.get(f"/api/courses/{course_id}/documents")).json()[0]["title"] == "slides"
-
-    answer = (await authed.post("/api/chat", json={"message": "Vererbung inheritance", "course_id": course_id, "document_ids": [document_id]})).json()
-    assert answer["message"]["sources"][0]["kind"] == "slides" and answer["message"]["sources"][0]["page"] == 1
-
-    bad = await authed.post("/api/documents", data={"course_id": course_id}, files={"file": ("x.docx", b"x", "application/octet-stream")})
-    assert bad.status_code == 422
+async def test_english_paragraphs_are_only_searchable_once_they_have_audio(authed, lecture_id):
+    await run_original(lecture_id)
+    for stage in (p.run_english_plan, p.run_english_write):  # written, not yet voiced
+        await stage(lecture_id)
+    hits = (await authed.get("/api/search", params={"q": "In English"})).json()["hits"]
+    assert hits == [], "a hit without an audio position cannot be opened"
+    for stage in (p.run_english_voice, p.run_english_assemble):
+        await stage(lecture_id)
+    hits = (await authed.get("/api/search", params={"q": "In English"})).json()["hits"]
+    assert hits and all(h["kind"] == "english" and h["start"] >= 0 for h in hits)
 
 
 async def test_jobs_list_and_retry_only_failed(authed):
@@ -201,6 +171,7 @@ async def test_deleting_a_lecture_removes_its_files_and_data(authed, lecture_id)
     assert (await authed.delete(f"/api/lectures/{lecture_id}")).status_code == 204
     assert not storage.exists(key)
     assert (await authed.get(f"/api/lectures/{lecture_id}")).status_code == 404
+    assert (await authed.get("/api/search", params={"q": "Wort"})).json()["hits"] == []
 
 
 async def test_html_is_never_cached_but_hashed_assets_are():
@@ -230,8 +201,8 @@ async def test_html_is_never_cached_but_hashed_assets_are():
 async def test_login_is_rate_limited_after_repeated_failures(client):
     from app.routers.auth import login_failures
 
-    login_failures.reset("127.0.0.1")
-    login_failures.reset("unknown")
+    for key in list(login_failures._failures):
+        login_failures.reset(key)
     bad = {"username": "tester", "password": "wrong"}
     codes = [(await client.post("/api/auth/login", json=bad)).status_code for _ in range(login_failures.max_failures)]
     assert set(codes) == {401}

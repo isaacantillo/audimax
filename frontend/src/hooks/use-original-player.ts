@@ -23,10 +23,11 @@ export function useOriginalPlayer(parts: LecturePart[]) {
       if (target < 0) target = 0
       const local = Math.max(0, lectureTime - (parts[target]?.offset ?? 0))
       const audio = audioRef.current
-      if (target === index && audio) {
+      if (target === index && audio && audio.readyState > 0) {
         audio.currentTime = local
         if (play) void audio.play()
       } else {
+        // Another file, or this one has not loaded yet: apply it when its metadata arrives.
         pending.current = { t: local, play }
         setIndex(target)
       }
@@ -66,13 +67,28 @@ export function useSimplePlayer() {
   const ref = useRef<HTMLAudioElement>(null)
   const [time, setTime] = useState(0)
   const [playing, setPlaying] = useState(false)
+  const pending = useRef<{ t: number; play: boolean } | null>(null)
+
   const seek = useCallback((t: number, play = true) => {
-    if (!ref.current) return
-    ref.current.currentTime = t
-    if (play) void ref.current.play()
+    const audio = ref.current
+    if (!audio) return
+    if (audio.readyState > 0) {
+      audio.currentTime = t
+      if (play) void audio.play()
+    } else {
+      pending.current = { t, play } // applied once the file's metadata has loaded
+    }
   }, [])
+
   const props = {
     ref,
+    onLoadedMetadata: (e: React.SyntheticEvent<HTMLAudioElement>) => {
+      const next = pending.current
+      if (!next) return
+      pending.current = null
+      e.currentTarget.currentTime = next.t
+      if (next.play) void e.currentTarget.play()
+    },
     onTimeUpdate: (e: React.SyntheticEvent<HTMLAudioElement>) => setTime(e.currentTarget.currentTime),
     onPlay: () => setPlaying(true),
     onPause: () => setPlaying(false),

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
 from app.jobs.queue import task_queue
-from app.models import Document, Lecture
+from app.models import Lecture
 from app.schemas.jobs import JobSummary
 
 router = APIRouter(tags=["jobs"])
@@ -34,15 +34,13 @@ async def list_jobs(
     for r in rows:
         args = r["args"] if isinstance(r["args"], dict) else json.loads(r["args"] or "{}")
         lecture_id = uuid.UUID(args["lecture_id"]) if args.get("lecture_id") else None
-        document_id = uuid.UUID(args["document_id"]) if args.get("document_id") else None
         lecture = await db.get(Lecture, lecture_id) if lecture_id else None
-        document = await db.get(Document, document_id) if document_id else None
-        error = (lecture.error if lecture else document.error if document else None) if r["status"] == "failed" else None
+        error = (lecture.error if lecture else None) if r["status"] == "failed" else None
         out.append(
             JobSummary(
                 id=r["id"], task=r["task_name"], queue=r["queue_name"], status=r["status"],
-                lecture_id=lecture_id, lecture_title=lecture.title if lecture else document.title if document else None,
-                document_id=document_id, scheduled_at=r["scheduled_at"], attempts=r["attempts"], error=error,
+                lecture_id=lecture_id, lecture_title=lecture.title if lecture else None,
+                scheduled_at=r["scheduled_at"], attempts=r["attempts"], error=error,
             )
         )
     return out

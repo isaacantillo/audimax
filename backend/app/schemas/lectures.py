@@ -12,7 +12,6 @@ class Lecture(ApiModel):
 
 
 class LectureSummary(Lecture):
-    document_count: int
     summary: str
     status: LectureStatus = LectureStatus.ready
     duration_seconds: int = 0
@@ -74,12 +73,3 @@ class TranscriptDetails(ApiModel):
     parts: list[LecturePart]
     transcript_segments: list[TranscriptSegment]
     english: EnglishLecture | None = None
-    documents: list["LectureDocument"] = []
-
-
-class LectureDocument(ApiModel):
-    id: uuid.UUID
-    title: str
-
-
-TranscriptDetails.model_rebuild()

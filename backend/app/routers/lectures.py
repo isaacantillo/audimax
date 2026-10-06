@@ -10,14 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import storage
 from app.db import get_session
 from app.jobs import pipeline, tasks
-from app.models import Chunk, Course, Document, Lecture, LecturePart, Paragraph, Unit
+from app.models import Chunk, Course, Lecture, LecturePart, Paragraph, Unit
 from app.routers.common import get_or_404, media_url
 from app.schemas import lectures as s
 from app.schemas.enums import LectureStatus
 from app.schemas.lectures import Lecture as LectureRef
 from app.schemas.lectures import LectureSummary
-from app.schemas.mindmap import MindMapResponse
-from app.services import insights
 
 router = APIRouter(tags=["lectures"])
 
@@ -70,7 +68,6 @@ async def get_lecture(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_sess
     lecture = await get_or_404(db, Lecture, lecture_id, "Lecture")
     parts = list((await db.execute(select(LecturePart).where(LecturePart.lecture_id == lecture_id).order_by(LecturePart.n))).scalars())
     units = list((await db.execute(select(Unit).where(Unit.lecture_id == lecture_id).order_by(Unit.n))).scalars())
-    docs = (await db.execute(select(Document).where(Document.lecture_id == lecture_id))).scalars()
 
     english = None
     chunks = list((await db.execute(select(Chunk).where(Chunk.lecture_id == lecture_id).order_by(Chunk.n))).scalars())
@@ -108,7 +105,6 @@ async def get_lecture(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_sess
         parts=[s.LecturePart(n=p.n, filename=p.filename, offset=p.offset, duration=p.duration, audio_url=media_url(p.audio_key)) for p in parts],
         transcript_segments=[s.TranscriptSegment(start=u.start, end=u.end, text_original=u.text_de, text_translated=u.text_en) for u in units],
         english=english,
-        documents=[s.LectureDocument(id=d.id, title=d.title) for d in docs],
     )
 
 
@@ -123,31 +119,10 @@ async def delete_lecture(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_s
 @router.get("/lectures/{lecture_id}/summary", response_model=LectureSummary)
 async def get_summary(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
     l = await get_or_404(db, Lecture, lecture_id, "Lecture")
-    count = len((await db.execute(select(Document.id).where(Document.lecture_id == lecture_id))).all())
     return LectureSummary(
-        id=l.id, title=l.title, document_count=count, summary=l.summary or "", status=LectureStatus(l.status),
+        id=l.id, title=l.title, summary=l.summary or "", status=LectureStatus(l.status),
         duration_seconds=int(l.duration), date=l.date, has_english=l.english_audio_key is not None,
     )
-
-
-@router.get("/lectures/{lecture_id}/mindmap", response_model=MindMapResponse)
-async def lecture_mindmap(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
-    l = await get_or_404(db, Lecture, lecture_id, "Lecture")
-    if l.mindmap is None:
-        units = (await db.execute(select(Unit).where(Unit.lecture_id == lecture_id).order_by(Unit.n))).scalars().all()
-        if not units:
-            return MindMapResponse(nodes=[], edges=[])
-        l.mindmap = await insights.lecture_mindmap(l.title, " ".join(u.text_en or u.text_de for u in units))
-        await db.commit()
-    return l.mindmap
-
-
-@router.post("/lectures/{lecture_id}/mindmap/refresh", response_model=MindMapResponse)
-async def refresh_lecture_mindmap(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
-    l = await get_or_404(db, Lecture, lecture_id, "Lecture")
-    l.mindmap = None
-    await db.commit()
-    return await lecture_mindmap(lecture_id, db)
 
 
 @router.post("/lectures/{lecture_id}/english", status_code=202)

@@ -17,12 +17,3 @@ export function uploadLecture(args: { courseId: string; title: string; files: Fi
   args.files.forEach((f) => form.append('files', f))
   return post<{ id: string; title: string }>('/api/lectures', form)
 }
-
-export function uploadDocument(args: { courseId: string; lectureId?: string; title: string; file: File }) {
-  const form = new FormData()
-  form.set('course_id', args.courseId)
-  if (args.lectureId) form.set('lecture_id', args.lectureId)
-  form.set('title', args.title)
-  form.set('file', args.file)
-  return post<{ id: string }>('/api/documents', form)
-}

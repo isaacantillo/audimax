@@ -1,6 +1,5 @@
-"""All LLM / embedding / TTS calls go through OpenRouter; AI_STUB=1 swaps in offline fakes."""
+"""All LLM / TTS calls go through OpenRouter; AI_STUB=1 swaps in offline fakes."""
 
-import re
 from typing import TypeVar
 
 from openai import AsyncOpenAI
@@ -45,21 +44,6 @@ async def complete(messages: list[dict[str, str]], *, temperature: float = 0.2) 
         model=models[0], messages=messages, temperature=temperature, extra_body={"models": models}
     )
     return completion.choices[0].message.content or ""
-
-
-async def embed(texts: list[str]) -> list[list[float]]:
-    if not texts:
-        return []
-    if settings.ai_stub:
-        return [stub.embedding(t, settings.embedding_dims) for t in texts]
-    vectors: list[list[float]] = []
-    for i in range(0, len(texts), 64):
-        batch = [re.sub(r"\s+", " ", t)[:8000] for t in texts[i : i + 64]]
-        response = await client.embeddings.create(
-            model=settings.embedding_model, input=batch, dimensions=settings.embedding_dims
-        )
-        vectors += [d.embedding for d in sorted(response.data, key=lambda d: d.index)]
-    return vectors
 
 
 async def speak(model: str, voice: str, text: str) -> bytes:

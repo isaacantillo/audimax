@@ -10,7 +10,7 @@ x-backend: &backend
 
 services:
   db:
-    image: pgvector/pgvector:pg17
+    image: postgres:17
     environment:
       POSTGRES_DB: audimax
       POSTGRES_USER: audimax

@@ -26,12 +26,12 @@ async def transcribe_lecture(lecture_id: str, english: bool = False) -> None:
 @task_queue.task(name="translate_lecture", queue="llm", retry=RETRY)
 async def translate_lecture(lecture_id: str, english: bool = False) -> None:
     await p.run_translate(uuid.UUID(lecture_id))
-    await defer(index_lecture, lecture_id, english=english)
+    await defer(summarize_lecture, lecture_id, english=english)
 
 
-@task_queue.task(name="index_lecture", queue="llm", retry=RETRY)
-async def index_lecture(lecture_id: str, english: bool = False) -> None:
-    await p.run_index(uuid.UUID(lecture_id))
+@task_queue.task(name="summarize_lecture", queue="llm", retry=RETRY)
+async def summarize_lecture(lecture_id: str, english: bool = False) -> None:
+    await p.run_summary(uuid.UUID(lecture_id))
     if english:
         await defer(english_plan, lecture_id)
 
@@ -57,14 +57,3 @@ async def english_voice(lecture_id: str) -> None:
 @task_queue.task(name="english_assemble", queue="media", retry=RETRY)
 async def english_assemble(lecture_id: str) -> None:
     await p.run_english_assemble(uuid.UUID(lecture_id))
-    await defer(english_index, lecture_id)
-
-
-@task_queue.task(name="english_index", queue="llm", retry=RETRY)
-async def english_index(lecture_id: str) -> None:
-    await p.run_english_index(uuid.UUID(lecture_id))
-
-
-@task_queue.task(name="process_document", queue="llm", retry=RETRY)
-async def process_document(document_id: str) -> None:
-    await p.run_document(uuid.UUID(document_id))

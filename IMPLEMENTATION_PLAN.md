@@ -1,5 +1,11 @@
 # Implementation Plan — Audimax full-stack app
 
+> **Scope reduced (2026-10-06).** Chat, mind maps, slide/PDF upload and everything behind them
+> (embeddings, pgvector, retrieval, Tavily web search) were removed to focus on audio and
+> transcripts. A transcript **search** page replaced chat as the way to find things, and the
+> migrations were squashed into one clean initial revision. Sections below that describe chat,
+> mind maps, documents or embeddings are kept only as history and no longer apply.
+>
 > **Status: built.** Steps 1–11 below are implemented and tested (18 backend tests against a real
 > Postgres, the stack exercised end to end through the real queue and worker, and the UI walked in a
 > browser). What was **not** verified is anything that needs paid services or a real host: real
@@ -8,14 +14,10 @@
 > See README.md for how to run it. The rest of this file is the original plan, kept for the *why*.
 >
 > **Deviations from the plan**
-> - Slides are parsed with PyMuPDF (`app/services/documents.py`), not Docling: Docling pulls in a very
->   large dependency set. The parser is one function, so swapping it in later touches nothing else.
 > - Jobs are one task per *stage* (each internally parallel over chunks/paragraphs), not one task per
 >   chunk with fan-in locking. Stages are idempotent and share a per-lecture lock, so a chunk rerun
 >   is "reset that chunk, run the write/voice/assemble stages again" and costs only the changed text.
-> - Chat answers are plain JSON, not streamed.
-> - Embeddings are requested at 1536 dimensions (pgvector's HNSW limit is 2000 for `vector`).
-> - Added beyond the plan: `AI_STUB` offline mode, login rate limiting, cache headers so a deploy
+> - Added beyond the plan: transcript search, `AI_STUB` offline mode, login rate limiting, cache headers so a deploy
 >   never leaves browsers on a deleted bundle, `scripts/backup.sh`.
 
 Companion to `PROJECT_BUILD_PLAN.md`. That file holds the *why*; this one holds the *what and in which order*. Follows the API-first sequence from the build plan: screens → response shapes → endpoints → service layer → DB models last.

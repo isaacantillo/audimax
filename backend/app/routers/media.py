@@ -10,8 +10,8 @@ router = APIRouter(tags=["media"])
 
 @router.get("/media/{key:path}", include_in_schema=False)
 async def media(key: str):
-    """Audio and PDFs. R2: redirect to a short-lived signed URL (supports seeking). Local: stream."""
-    if not key.startswith(("lectures/", "documents/")) or ".." in key:
+    """Lecture audio. R2: redirect to a short-lived signed URL (supports seeking). Local: stream."""
+    if not key.startswith("lectures/") or ".." in key:
         raise HTTPException(404)
     url = storage.presigned_url(key)
     if url:

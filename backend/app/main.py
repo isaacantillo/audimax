@@ -12,7 +12,7 @@ from app.db import SessionLocal
 from app.http_cache import cache_headers
 from app.jobs.queue import task_queue
 from app.models import User
-from app.routers import auth, chat, courses, documents, jobs, lectures, media
+from app.routers import auth, courses, jobs, lectures, media, search
 
 log = logging.getLogger("audimax")
 
@@ -55,7 +55,7 @@ def health() -> dict[str, str]:
 
 api.include_router(auth.router)
 # Everything except /health and /auth/login requires a session cookie or bearer token.
-for router in (courses, lectures, documents, jobs, chat, media):
+for router in (courses, lectures, jobs, search, media):
     api.include_router(router.router, dependencies=[Depends(current_user)])
 app.include_router(api)
 

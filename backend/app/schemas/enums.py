@@ -1,15 +1,8 @@
 import enum
 
 
-class FileProcessingStatus(str, enum.Enum):
-    queued = "queued"
-    processing = "processing"
-    ready = "ready"
-    failed = "failed"
-
-
 class LectureStatus(str, enum.Enum):
-    """Original lecture: uploaded -> transcribing -> transcribed -> translating -> indexing -> ready.
+    """Original lecture: uploaded -> transcribing -> transcribed -> translating -> summarizing -> ready.
     English lecture (optional, on top of ready): chunking -> scripting -> voicing -> assembling
     -> english_ready. `failed` can follow any of them."""
 
@@ -17,7 +10,7 @@ class LectureStatus(str, enum.Enum):
     transcribing = "transcribing"
     transcribed = "transcribed"
     translating = "translating"
-    indexing = "indexing"
+    summarizing = "summarizing"
     ready = "ready"
     chunking = "chunking"
     scripting = "scripting"

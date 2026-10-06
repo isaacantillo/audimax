@@ -18,7 +18,7 @@ export const STATUS_LABEL: Record<LectureStatus, string> = {
   transcribing: 'Transcribing',
   transcribed: 'Transcribed',
   translating: 'Translating',
-  indexing: 'Indexing',
+  summarizing: 'Summarizing',
   ready: 'Ready',
   chunking: 'English: planning',
   scripting: 'English: writing',

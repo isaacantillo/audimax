@@ -2,9 +2,7 @@ import datetime
 import uuid
 from typing import Any
 
-from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
-    JSON,
     Boolean,
     Date,
     DateTime,
@@ -19,7 +17,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.config import settings
 from app.db import Base
 
 _now = func.now()
@@ -34,8 +31,6 @@ class Course(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(200))
-    chat_selection: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # "remembers last selection"
-    mindmap: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # cached course-wide map
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=_now)
 
 
@@ -50,7 +45,6 @@ class Lecture(Base):
     error: Mapped[str | None] = mapped_column(Text)
     duration: Mapped[float] = mapped_column(Float, default=0)
     summary: Mapped[str | None] = mapped_column(Text)
-    mindmap: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     # English re-performed lecture
     tts_provider: Mapped[str | None] = mapped_column(String(20))
     english_audio_key: Mapped[str | None] = mapped_column(String(500))
@@ -134,78 +128,3 @@ class GlossaryTerm(Base):
     lecture_id: Mapped[uuid.UUID] = _fk("lectures")
     german: Mapped[str] = mapped_column(String(200))
     english: Mapped[str] = mapped_column(String(200))
-
-
-class Document(Base):
-    __tablename__ = "documents"
-
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    course_id: Mapped[uuid.UUID] = _fk("courses")
-    lecture_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("lectures.id", ondelete="SET NULL"))
-    title: Mapped[str] = mapped_column(String(300))
-    filename: Mapped[str] = mapped_column(String(300))
-    file_key: Mapped[str] = mapped_column(String(500))
-    page_count: Mapped[int] = mapped_column(Integer, default=0)
-    status: Mapped[str] = mapped_column(String(20), default="queued")
-    error: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=_now)
-
-
-class DocumentSection(Base):
-    __tablename__ = "document_sections"
-
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    document_id: Mapped[uuid.UUID] = _fk("documents")
-    n: Mapped[int] = mapped_column(Integer)
-    page: Mapped[int] = mapped_column(Integer)
-    heading: Mapped[str | None] = mapped_column(String(300))
-    text: Mapped[str] = mapped_column(Text)
-
-
-class Passage(Base):
-    """Embedded text for retrieval: transcript windows, English script paragraphs, slide sections."""
-
-    __tablename__ = "passages"
-    __table_args__ = (
-        Index(
-            "ix_passages_embedding",
-            "embedding",
-            postgresql_using="hnsw",
-            postgresql_ops={"embedding": "vector_cosine_ops"},
-        ),
-    )
-
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    course_id: Mapped[uuid.UUID] = _fk("courses")
-    lecture_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("lectures.id", ondelete="CASCADE"), index=True
-    )
-    document_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("documents.id", ondelete="CASCADE"), index=True
-    )
-    kind: Mapped[str] = mapped_column(String(12))  # transcript | english | slides
-    ref: Mapped[str] = mapped_column(String(60))  # unit range, paragraph id, or page
-    start: Mapped[float | None] = mapped_column(Float)  # seconds in the matching audio
-    text: Mapped[str] = mapped_column(Text)
-    embedding: Mapped[list[float]] = mapped_column(Vector(settings.embedding_dims))
-
-
-class ChatThread(Base):
-    __tablename__ = "chat_threads"
-
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    course_id: Mapped[uuid.UUID] = _fk("courses")
-    lecture_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("lectures.id", ondelete="CASCADE"))
-    document_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"))
-    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=_now)
-
-
-class ChatMessage(Base):
-    __tablename__ = "chat_messages"
-
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    thread_id: Mapped[uuid.UUID] = _fk("chat_threads")
-    role: Mapped[str] = mapped_column(String(10))
-    content: Mapped[str] = mapped_column(Text)
-    sources: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
-    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=_now)
