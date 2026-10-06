@@ -127,9 +127,18 @@ def unit_lines(units: list[Unit]) -> str:
     return "\n".join(f"[{u.n}] ({mmss(u.start)}) {u.text}" for u in units)
 
 
+_FOLD = str.maketrans({"ä": "a", "ö": "o", "ü": "u", "ß": "s"})
+
+
+def fold(text: str) -> str:
+    """Lowercase and drop umlauts, so Testfall matches Testfälle (German plurals change the vowel)."""
+    return text.lower().translate(_FOLD)
+
+
 def mentions(term: str, text: str) -> bool:
-    """Whether every word of `term` occurs in `text`, ignoring German inflection endings."""
-    return all(w[:max(4, len(w) - 2)] in text for w in term.lower().split())
+    """Whether every word of `term` occurs in `text`, ignoring German inflection endings and umlauts."""
+    haystack = fold(text)
+    return all(fold(w)[: max(4, len(w) - 2)] in haystack for w in term.split())
 
 
 @dataclass
@@ -171,10 +180,18 @@ def introductions(glossary: Glossary, chunk_texts: list[str]) -> list[list[str]]
     remaining = list(glossary.terms)
     out: list[list[str]] = []
     for text in chunk_texts:
-        here = [t for t in remaining if mentions(t.german, text.lower())]
+        here = [t for t in remaining if mentions(t.german, text)]
         remaining = [t for t in remaining if t not in here]
         out.append([f"{t.english} = {t.german}" for t in here])
     return out
+
+
+def missing_german_terms(introduce: list[str], script_text: str) -> list[str]:
+    """German terms (from "english = german" entries) that the script never says. A substring check on
+    the base form, so "Abhängigkeiten" counts for "Abhängigkeit"."""
+    text = fold(script_text)
+    terms = [entry.split(" = ", 1)[1] for entry in introduce if " = " in entry]
+    return [t for t in terms if fold(t) not in text]
 
 
 @dataclass
@@ -206,10 +223,8 @@ async def write_chunk(
         f"Checklist:\n{checklist_json}\n\nGerman source:\n{source}"
     )
     feedback = ""
-    script: Script | None = None
-    verdict = Verdict(missing_items=[], invented=[])
-    ok = False
-    attempt = 0
+    best: tuple[Script, Verdict, list[str], int] | None = None  # newest draft that passed the content check
+    last: tuple[Script, Verdict, list[str], int] | None = None
     for attempt in range(1, MAX_WRITE_ATTEMPTS + 1):
         script = await llm.ask(WRITE_PROMPT, context + feedback, Script)
         english = "\n\n".join(p.text for p in script.paragraphs)
@@ -218,21 +233,33 @@ async def write_chunk(
             f"Checklist:\n{checklist_json}\n\nGerman source:\n{source}\n\nEnglish script:\n{english}",
             Verdict,
         )
-        ok = not verdict.missing_items and not verdict.invented
-        if ok:
+        absent = missing_german_terms(introduce, english)
+        last = (script, verdict, absent, attempt)
+        content_ok = not verdict.missing_items and not verdict.invented
+        if content_ok:
+            best = last
+        if content_ok and not absent:
             break
-        feedback = (
-            "\n\nYour previous draft failed review. Rewrite the whole chunk and fix:\n"
-            f"- missing checklist items: {verdict.missing_items}\n"
-            f"- unsupported content to remove: {verdict.invented}"
-        )
-    assert script is not None
+        problems = []
+        if verdict.missing_items:
+            problems.append(f"- missing checklist items: {verdict.missing_items}")
+        if verdict.invented:
+            problems.append(f"- unsupported content to remove: {verdict.invented}")
+        if absent:
+            problems.append(f"- German key terms you were told to introduce but never said: {absent}. "
+                            'Say each once, e.g. "test case, in German Testfall,".')
+        feedback = "\n\nYour previous draft failed review. Rewrite the whole chunk and fix:\n" + "\n".join(problems)
+
+    # Content correctness is required; a still-missing German term is only reported. Prefer the newest
+    # draft that passed the content check over a later one that regressed.
+    script, verdict, absent, attempt = best or last  # type: ignore[misc]
+    ok = best is not None
     lo, hi = units[0].n, units[-1].n
     paragraphs = []
     for p in script.paragraphs:
         first = min(max(p.first_unit, lo), hi)
         paragraphs.append(Paragraph(text=p.text, first_unit=first, last_unit=min(max(p.last_unit, first), hi)))
-    return WrittenChunk(paragraphs, ok, attempt, verdict.model_dump())
+    return WrittenChunk(paragraphs, ok, attempt, {**verdict.model_dump(), "missing_terms": absent})
 
 
 def clip_key(lecture_id, provider_model: str, voice: str, text: str) -> str:

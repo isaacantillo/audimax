@@ -144,3 +144,74 @@ async def test_failure_marks_the_lecture_with_the_reason(lecture_id, monkeypatch
         pass
     lecture = await lecture_row(lecture_id)
     assert lecture.status == "failed" and "provider returned 400" in lecture.error
+
+
+async def test_write_chunk_asks_again_when_a_planned_german_term_is_missing(monkeypatch):
+    """The checklist check can pass while the exam vocabulary is silently dropped."""
+    from app.services.transcription import Unit
+
+    prompts: list[str] = []
+
+    async def fake_ask(system, user, schema):
+        if schema.__name__ == "Script":
+            prompts.append(user)
+            said = "test case, in German Testfall," if len(prompts) > 1 else "test case"
+            return el.Script(paragraphs=[el.Paragraph(text=f"Write a {said} first.", first_unit=0, last_unit=0)])
+        return el.Verdict(missing_items=[], invented=[])
+
+    monkeypatch.setattr(llm, "ask", fake_ask)
+    written = await el.write_chunk(
+        lecture="L", title="T", previous_title=None, is_last=True,
+        checklist=el.Checklist(items=[]), introduce=["test case = Testfall"], units=[Unit(0, 0.0, 1.0, "Schreiben Sie einen Testfall.")],
+    )
+    assert len(prompts) == 2 and "Testfall" in prompts[1] and "never said" in prompts[1]
+    assert written.verified and written.attempts == 2 and written.verdict["missing_terms"] == []
+
+
+async def test_a_missing_term_never_fails_the_chunk_and_regressions_are_not_kept(monkeypatch):
+    from app.services.transcription import Unit
+
+    drafts = iter([
+        ("Good content, no German term.", el.Verdict(missing_items=[], invented=[])),       # content ok, term missing
+        ("Mentions Testfall but dropped an item.", el.Verdict(missing_items=[2], invented=[])),  # regressed
+        ("Good content again, still no term.", el.Verdict(missing_items=[], invented=[])),
+    ])
+    current: list[el.Verdict] = []
+
+    async def fake_ask(system, user, schema):
+        if schema.__name__ == "Script":
+            text, verdict = next(drafts)
+            current[:] = [verdict]
+            return el.Script(paragraphs=[el.Paragraph(text=text, first_unit=0, last_unit=0)])
+        return current[0]
+
+    monkeypatch.setattr(llm, "ask", fake_ask)
+    written = await el.write_chunk(
+        lecture="L", title="T", previous_title=None, is_last=True, checklist=el.Checklist(items=[]),
+        introduce=["test case = Testfall"], units=[Unit(0, 0.0, 1.0, "x")],
+    )
+    assert written.verified, "a missing German word alone must not mark the chunk unverified"
+    assert written.paragraphs[0].text == "Good content again, still no term."
+    assert written.verdict["missing_terms"] == ["Testfall"]
+    assert el.missing_german_terms(["dependency = Abhängigkeit"], "the Abhängigkeiten grow") == [], "inflected forms count"
+
+
+def test_glossary_terms_are_found_across_german_inflection():
+    """Found on a real lecture: Testfall was assigned to no chunk because the plural is Testfälle."""
+    glossary = el.Glossary(terms=[
+        el.Term(german="Testfall", english="test case"),
+        el.Term(german="technische Schulden", english="technical debt"),
+        el.Term(german="Grenzwert", english="boundary value"),
+        el.Term(german="Vererbung", english="inheritance"),
+    ])
+    chunks = [
+        "Wir sprechen über technische Schulden und wie sie entstehen.",
+        "Definieren Sie Testfälle und Grenzwerte vor der Implementierung.",
+        "Vererbung wird später behandelt, und noch einmal die Testfälle.",
+    ]
+    assigned = el.introductions(glossary, chunks)
+    assert assigned[0] == ["technical debt = technische Schulden"]
+    assert sorted(assigned[1]) == ["boundary value = Grenzwert", "test case = Testfall"]
+    assert assigned[2] == ["inheritance = Vererbung"], "a term is introduced once, in the first chunk that mentions it"
+    assert el.missing_german_terms(["test case = Testfall"], "Define each Testfälle first.") == []
+    assert el.missing_german_terms(["test case = Testfall"], "Define each test case first.") == ["Testfall"]
