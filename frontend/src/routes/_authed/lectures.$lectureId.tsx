@@ -14,7 +14,7 @@ import { ConfirmButton } from '@/components/confirm-button'
 import { Markdown } from '@/components/markdown'
 import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useOriginalPlayer, useSimplePlayer } from '@/hooks/use-original-player'
@@ -142,6 +142,7 @@ function LectureView() {
         </TabsList>
         <TabsContent value="transcript" className="space-y-4">
           <EnglishPanel lecture={lecture} />
+          {lecture.transcript_segments.length > 0 && <DownloadTranscript lectureId={lecture.id} />}
           {mode === 'english' && lecture.english ? (
             <EnglishScript lecture={lecture} time={english.time} playing={english.playing} onSeek={(t) => english.seek(t)} onHearOriginal={hearOriginal} />
           ) : (
@@ -193,6 +194,28 @@ function OriginalTranscript({
           {s.text_translated && <p className="text-muted-foreground">{s.text_translated}</p>}
         </div>
       ))}
+    </div>
+  )
+}
+
+/** Plain links: the browser sends the session cookie and saves the file the server names. */
+function DownloadTranscript({ lectureId }: { lectureId: string }) {
+  const link = (version: 'original' | 'translation' | 'both', label: string) => (
+    <a
+      key={version}
+      href={`/api/lectures/${lectureId}/transcript.txt?version=${version}`}
+      download
+      className={buttonVariants({ variant: 'outline', size: 'sm' })}
+    >
+      {label}
+    </a>
+  )
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-muted-foreground">Download as .txt:</span>
+      {link('original', 'German')}
+      {link('translation', 'English translation')}
+      {link('both', 'Both')}
     </div>
   )
 }

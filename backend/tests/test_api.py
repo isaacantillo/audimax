@@ -224,3 +224,58 @@ def test_failure_limiter_forgets_old_failures(monkeypatch):
     assert limiter.blocked("a") and not limiter.blocked("b")
     now[0] += 61
     assert not limiter.blocked("a")
+
+
+async def test_transcript_download_in_each_version(authed, lecture_id):
+    url = f"/api/lectures/{lecture_id}/transcript.txt"
+    assert (await authed.get(url)).status_code == 409, "nothing to download before the transcript exists"
+    await run_original(lecture_id)
+
+    german = await authed.get(url, params={"version": "original"})
+    assert german.status_code == 200 and german.headers["content-type"] == "text/plain; charset=utf-8"
+    assert 'attachment; filename="SE1 L1 - original.txt"' in german.headers["content-disposition"]
+    body = german.text.splitlines()
+    assert body[0] == "SE1 L1" and body[1].startswith("German original · 1:10")
+    assert "Recordings: SE1_L1_1.mp3 from 0:00, SE1_L1_2.mp3 from 0:40" in german.text, "the header says where each file starts"
+    sentences = [l for l in body if l.startswith("[")]
+    detail = (await authed.get(f"/api/lectures/{lecture_id}")).json()["transcript_segments"]
+    assert len(sentences) == len(detail) and sentences[0].startswith("[0:00] ")
+    assert "[EN]" not in german.text
+
+    english = (await authed.get(url, params={"version": "translation"})).text
+    assert english.splitlines()[1].startswith("English translation")
+    assert f"[0:00] {detail[0]['text_translated']}" in english
+    assert f"[0:00] {detail[0]['text_original']}" not in english, "the translation file has no untranslated lines"
+
+    both = (await authed.get(url, params={"version": "both"})).text
+    lines = both.split("\n")
+    first = next(i for i, l in enumerate(lines) if l.startswith("[0:00]"))
+    assert lines[first].endswith(detail[0]["text_original"])
+    assert lines[first + 1].strip() == detail[0]["text_translated"] and lines[first + 1].startswith("      "), "translation sits under its sentence"
+    assert lines[first + 2] == "", "a blank line between sentence pairs"
+
+    plain = (await authed.get(url, params={"version": "original", "timestamps": "false"})).text
+    assert "[0:00]" not in plain and detail[0]["text_original"] in plain
+
+    assert (await authed.get(url, params={"version": "klingon"})).status_code == 422
+    assert (await authed.get(url)).text == german.text, "the default is the German original"
+
+
+async def test_transcript_download_handles_accents_and_hour_long_clocks(authed, lecture_id):
+    from app.services.export import clock
+
+    assert [clock(s) for s in (0, 59, 61, 3599, 3600, 3725)] == ["0:00", "0:59", "1:01", "59:59", "1:00:00", "1:02:05"]
+    await run_original(lecture_id)
+    async with SessionLocal() as db:
+        lecture = await db.get(Lecture, lecture_id)
+        lecture.title = "Softwaretechnik Übung/Teil 1"  # type: ignore[union-attr]
+        await db.commit()
+    r = await authed.get(f"/api/lectures/{lecture_id}/transcript.txt", params={"version": "both"})
+    disposition = r.headers["content-disposition"]
+    assert 'filename="Softwaretechnik _bung_Teil 1 - both.txt"' in disposition, "ASCII fallback has no path separators"
+    assert "filename*=UTF-8''Softwaretechnik%20%C3%9Cbung%2FTeil%201%20-%20both.txt" in disposition
+    assert r.text.startswith("Softwaretechnik Übung/Teil 1\n")
+
+
+async def test_transcript_download_requires_login(client, lecture_id):
+    assert (await client.get(f"/api/lectures/{lecture_id}/transcript.txt")).status_code == 401

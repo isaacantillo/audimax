@@ -19,6 +19,10 @@ Open <http://localhost:8000> and log in as `ADMIN_USERNAME` / `ADMIN_PASSWORD` f
 
 `uploaded → transcribing → transcribed → translating → summarizing → ready`, then optionally (button on the lecture, or a checkbox at upload) `chunking → scripting → voicing → assembling → english_ready`. Watch it on the **Activity** page; failed steps show the reason and can be retried. A lecture recorded in several files (`SE1_L1_1.m4a`, `SE1_L1_2.m4a`) is uploaded together and treated as one lecture.
 
+## Download transcripts
+
+On a lecture's Transcript tab, **Download as .txt** saves the transcript as a UTF-8 text file: the German original, the English translation, or both (each German sentence followed by its translation). Every sentence starts with its time in the lecture, and a lecture recorded in several files gets one continuous clock (the header lists where each file starts). Also available as `GET /api/lectures/<id>/transcript.txt?version=original|translation|both&timestamps=true|false`.
+
 ## Search
 
 The **Search** page finds a word or phrase in the German transcripts, their English translations and the English versions (case-insensitive, matches inside words too). Each hit opens the lecture at that moment. It is plain Postgres text matching: no AI, no cost.

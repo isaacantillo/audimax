@@ -3,7 +3,10 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +19,7 @@ from app.schemas import lectures as s
 from app.schemas.enums import LectureStatus
 from app.schemas.lectures import Lecture as LectureRef
 from app.schemas.lectures import LectureSummary
+from app.services.export import Line, TranscriptVersion, transcript_text
 
 router = APIRouter(tags=["lectures"])
 
@@ -105,6 +109,36 @@ async def get_lecture(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_sess
         parts=[s.LecturePart(n=p.n, filename=p.filename, offset=p.offset, duration=p.duration, audio_url=media_url(p.audio_key)) for p in parts],
         transcript_segments=[s.TranscriptSegment(start=u.start, end=u.end, text_original=u.text_de, text_translated=u.text_en) for u in units],
         english=english,
+    )
+
+
+@router.get("/lectures/{lecture_id}/transcript.txt", response_class=PlainTextResponse, responses={200: {"content": {"text/plain": {}}}})
+async def download_transcript(
+    lecture_id: uuid.UUID,
+    version: TranscriptVersion = Query(TranscriptVersion.original, description="original (German), translation (English) or both"),
+    timestamps: bool = Query(True, description="prefix each sentence with its time in the lecture"),
+    db: AsyncSession = Depends(get_session),
+):
+    """The transcript as a UTF-8 text file."""
+    lecture = await get_or_404(db, Lecture, lecture_id, "Lecture")
+    units = list((await db.execute(select(Unit).where(Unit.lecture_id == lecture_id).order_by(Unit.n))).scalars())
+    if not units:
+        raise HTTPException(409, "The transcript is not ready yet.")
+    parts = list((await db.execute(select(LecturePart).where(LecturePart.lecture_id == lecture_id).order_by(LecturePart.n))).scalars())
+    body = transcript_text(
+        title=lecture.title,
+        date=lecture.date,
+        duration=lecture.duration,
+        parts=[(p.filename, p.offset) for p in parts],
+        lines=[Line(u.start, u.text_de, u.text_en) for u in units],
+        version=version,
+        timestamps=timestamps,
+    )
+    name = f"{lecture.title} - {version.value}.txt"
+    ascii_name = re.sub(r"[^A-Za-z0-9._ -]+", "_", name)
+    return PlainTextResponse(
+        body,
+        headers={"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name, safe='')}"},
     )
 
 

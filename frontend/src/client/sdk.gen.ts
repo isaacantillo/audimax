@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateApiTokenData, CreateApiTokenErrors, CreateApiTokenResponses, CreateCourseData, CreateCourseErrors, CreateCourseResponses, CreateEnglishData, CreateEnglishErrors, CreateEnglishResponses, CreateLectureData, CreateLectureErrors, CreateLectureResponses, DeleteCourseData, DeleteCourseErrors, DeleteCourseResponses, DeleteLectureData, DeleteLectureErrors, DeleteLectureResponses, GetCourseData, GetCourseErrors, GetCourseResponses, GetLectureData, GetLectureErrors, GetLectureResponses, GetMeData, GetMeResponses, GetSummaryData, GetSummaryErrors, GetSummaryResponses, HealthData, HealthResponses, ListCoursesData, ListCoursesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListLecturesData, ListLecturesErrors, ListLecturesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, RerunChunkData, RerunChunkErrors, RerunChunkResponses, RetryJobData, RetryJobErrors, RetryJobResponses, SearchData, SearchErrors, SearchResponses } from './types.gen';
+import type { CreateApiTokenData, CreateApiTokenErrors, CreateApiTokenResponses, CreateCourseData, CreateCourseErrors, CreateCourseResponses, CreateEnglishData, CreateEnglishErrors, CreateEnglishResponses, CreateLectureData, CreateLectureErrors, CreateLectureResponses, DeleteCourseData, DeleteCourseErrors, DeleteCourseResponses, DeleteLectureData, DeleteLectureErrors, DeleteLectureResponses, DownloadTranscriptData, DownloadTranscriptErrors, DownloadTranscriptResponses, GetCourseData, GetCourseErrors, GetCourseResponses, GetLectureData, GetLectureErrors, GetLectureResponses, GetMeData, GetMeResponses, GetSummaryData, GetSummaryErrors, GetSummaryResponses, HealthData, HealthResponses, ListCoursesData, ListCoursesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListLecturesData, ListLecturesErrors, ListLecturesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, RerunChunkData, RerunChunkErrors, RerunChunkResponses, RetryJobData, RetryJobErrors, RetryJobResponses, SearchData, SearchErrors, SearchResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -115,6 +115,13 @@ export const deleteLecture = <ThrowOnError extends boolean = false>(options: Opt
  * Get Lecture
  */
 export const getLecture = <ThrowOnError extends boolean = false>(options: Options<GetLectureData, ThrowOnError>): RequestResult<GetLectureResponses, GetLectureErrors, ThrowOnError> => (options.client ?? client).get<GetLectureResponses, GetLectureErrors, ThrowOnError>({ url: '/api/lectures/{lecture_id}', ...options });
+
+/**
+ * Download Transcript
+ *
+ * The transcript as a UTF-8 text file.
+ */
+export const downloadTranscript = <ThrowOnError extends boolean = false>(options: Options<DownloadTranscriptData, ThrowOnError>): RequestResult<DownloadTranscriptResponses, DownloadTranscriptErrors, ThrowOnError> => (options.client ?? client).get<DownloadTranscriptResponses, DownloadTranscriptErrors, ThrowOnError>({ url: '/api/lectures/{lecture_id}/transcript.txt', ...options });
 
 /**
  * Get Summary

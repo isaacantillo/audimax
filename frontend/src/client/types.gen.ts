@@ -435,6 +435,11 @@ export type TranscriptSegment = {
 };
 
 /**
+ * TranscriptVersion
+ */
+export type TranscriptVersion = 'original' | 'translation' | 'both';
+
+/**
  * UserOut
  */
 export type UserOut = {
@@ -797,6 +802,47 @@ export type GetLectureResponses = {
 };
 
 export type GetLectureResponse = GetLectureResponses[keyof GetLectureResponses];
+
+export type DownloadTranscriptData = {
+    body?: never;
+    path: {
+        /**
+         * Lecture Id
+         */
+        lecture_id: string;
+    };
+    query?: {
+        /**
+         * original (German), translation (English) or both
+         */
+        version?: TranscriptVersion;
+        /**
+         * Timestamps
+         *
+         * prefix each sentence with its time in the lecture
+         */
+        timestamps?: boolean;
+    };
+    url: '/api/lectures/{lecture_id}/transcript.txt';
+};
+
+export type DownloadTranscriptErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DownloadTranscriptError = DownloadTranscriptErrors[keyof DownloadTranscriptErrors];
+
+export type DownloadTranscriptResponses = {
+    /**
+     * Successful Response
+     */
+    200: string;
+};
+
+export type DownloadTranscriptResponse = DownloadTranscriptResponses[keyof DownloadTranscriptResponses];
 
 export type GetSummaryData = {
     body?: never;

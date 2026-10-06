@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createApiToken, createCourse, createEnglish, createLecture, deleteCourse, deleteLecture, getCourse, getLecture, getMe, getSummary, health, listCourses, listJobs, listLectures, login, logout, type Options, rerunChunk, retryJob, search } from '../sdk.gen';
-import type { CreateApiTokenData, CreateApiTokenError, CreateApiTokenResponse, CreateCourseData, CreateCourseError, CreateCourseResponse, CreateEnglishData, CreateEnglishError, CreateLectureData, CreateLectureError, CreateLectureResponse, DeleteCourseData, DeleteCourseError, DeleteCourseResponse, DeleteLectureData, DeleteLectureError, DeleteLectureResponse, GetCourseData, GetCourseError, GetCourseResponse, GetLectureData, GetLectureError, GetLectureResponse, GetMeData, GetMeResponse, GetSummaryData, GetSummaryError, GetSummaryResponse, HealthData, HealthResponse, ListCoursesData, ListCoursesResponse, ListJobsData, ListJobsError, ListJobsResponse, ListLecturesData, ListLecturesError, ListLecturesResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, RerunChunkData, RerunChunkError, RetryJobData, RetryJobError, SearchData, SearchError, SearchResponse2 } from '../types.gen';
+import { createApiToken, createCourse, createEnglish, createLecture, deleteCourse, deleteLecture, downloadTranscript, getCourse, getLecture, getMe, getSummary, health, listCourses, listJobs, listLectures, login, logout, type Options, rerunChunk, retryJob, search } from '../sdk.gen';
+import type { CreateApiTokenData, CreateApiTokenError, CreateApiTokenResponse, CreateCourseData, CreateCourseError, CreateCourseResponse, CreateEnglishData, CreateEnglishError, CreateLectureData, CreateLectureError, CreateLectureResponse, DeleteCourseData, DeleteCourseError, DeleteCourseResponse, DeleteLectureData, DeleteLectureError, DeleteLectureResponse, DownloadTranscriptData, DownloadTranscriptError, DownloadTranscriptResponse, GetCourseData, GetCourseError, GetCourseResponse, GetLectureData, GetLectureError, GetLectureResponse, GetMeData, GetMeResponse, GetSummaryData, GetSummaryError, GetSummaryResponse, HealthData, HealthResponse, ListCoursesData, ListCoursesResponse, ListJobsData, ListJobsError, ListJobsResponse, ListLecturesData, ListLecturesError, ListLecturesResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, RerunChunkData, RerunChunkError, RetryJobData, RetryJobError, SearchData, SearchError, SearchResponse2 } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -268,6 +268,26 @@ export const getLectureOptions = (options: Options<GetLectureData>) => queryOpti
         return data;
     },
     queryKey: getLectureQueryKey(options)
+});
+
+export const downloadTranscriptQueryKey = (options: Options<DownloadTranscriptData>) => createQueryKey('downloadTranscript', options);
+
+/**
+ * Download Transcript
+ *
+ * The transcript as a UTF-8 text file.
+ */
+export const downloadTranscriptOptions = (options: Options<DownloadTranscriptData>) => queryOptions<DownloadTranscriptResponse, DownloadTranscriptError, DownloadTranscriptResponse, ReturnType<typeof downloadTranscriptQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await downloadTranscript({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: downloadTranscriptQueryKey(options)
 });
 
 export const getSummaryQueryKey = (options: Options<GetSummaryData>) => createQueryKey('getSummary', options);
