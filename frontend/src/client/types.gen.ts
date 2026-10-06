@@ -29,6 +29,229 @@ export type ApiTokenResponse = {
 };
 
 /**
+ * Body_create_document
+ */
+export type BodyCreateDocument = {
+    /**
+     * Course Id
+     */
+    course_id: string;
+    /**
+     * Lecture Id
+     */
+    lecture_id?: string | null;
+    /**
+     * Title
+     */
+    title?: string;
+    /**
+     * File
+     */
+    file: Blob | File;
+};
+
+/**
+ * Body_create_lecture
+ */
+export type BodyCreateLecture = {
+    /**
+     * Course Id
+     */
+    course_id: string;
+    /**
+     * Title
+     */
+    title?: string;
+    /**
+     * English
+     */
+    english?: boolean;
+    /**
+     * Files
+     */
+    files: Array<Blob | File>;
+};
+
+/**
+ * ChatHistory
+ */
+export type ChatHistory = {
+    /**
+     * Thread Id
+     */
+    thread_id: string | null;
+    /**
+     * Messages
+     */
+    messages: Array<ChatMessage>;
+};
+
+/**
+ * ChatMessage
+ */
+export type ChatMessage = {
+    /**
+     * Role
+     */
+    role: 'user' | 'assistant';
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Sources
+     */
+    sources: Array<ChatSource>;
+};
+
+/**
+ * ChatRequest
+ */
+export type ChatRequest = {
+    /**
+     * Message
+     */
+    message: string;
+    /**
+     * Course Id
+     */
+    course_id: string;
+    /**
+     * Lecture Ids
+     */
+    lecture_ids?: Array<string>;
+    /**
+     * Document Ids
+     */
+    document_ids?: Array<string>;
+    /**
+     * Thread Id
+     */
+    thread_id?: string | null;
+    /**
+     * Web
+     */
+    web?: boolean;
+};
+
+/**
+ * ChatResponse
+ */
+export type ChatResponse = {
+    /**
+     * Thread Id
+     */
+    thread_id: string;
+    message: ChatMessage;
+};
+
+/**
+ * ChatSelection
+ *
+ * The sources last used in a course's chat (remembered between visits).
+ */
+export type ChatSelectionInput = {
+    /**
+     * Lecture Ids
+     */
+    lecture_ids?: Array<string>;
+    /**
+     * Document Ids
+     */
+    document_ids?: Array<string>;
+    /**
+     * Web
+     */
+    web?: boolean;
+};
+
+/**
+ * ChatSelection
+ *
+ * The sources last used in a course's chat (remembered between visits).
+ */
+export type ChatSelectionOutput = {
+    /**
+     * Lecture Ids
+     */
+    lecture_ids: Array<string>;
+    /**
+     * Document Ids
+     */
+    document_ids: Array<string>;
+    /**
+     * Web
+     */
+    web: boolean;
+};
+
+/**
+ * ChatSource
+ */
+export type ChatSource = {
+    /**
+     * Kind
+     */
+    kind: 'transcript' | 'english' | 'slides' | 'web';
+    /**
+     * Ref
+     */
+    ref: string;
+    /**
+     * Snippet
+     */
+    snippet: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Lecture Id
+     */
+    lecture_id: string | null;
+    /**
+     * Document Id
+     */
+    document_id: string | null;
+    /**
+     * Start
+     */
+    start: number | null;
+    /**
+     * Page
+     */
+    page: number | null;
+    /**
+     * Url
+     */
+    url: string | null;
+};
+
+/**
+ * Course
+ */
+export type Course = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
+ * CourseCreate
+ */
+export type CourseCreate = {
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
  * CourseSummary
  */
 export type CourseSummary = {
@@ -59,6 +282,168 @@ export type CourseSummary = {
 };
 
 /**
+ * DocumentDetails
+ */
+export type DocumentDetails = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Type
+     */
+    type: 'slides';
+    status: FileProcessingStatus;
+    course: Course;
+    lecture: Lecture | null;
+    /**
+     * File Url
+     */
+    file_url: string;
+    /**
+     * Page Count
+     */
+    page_count: number;
+    /**
+     * Error
+     */
+    error: string | null;
+    /**
+     * Sections
+     */
+    sections: Array<DocumentSection>;
+};
+
+/**
+ * DocumentSection
+ */
+export type DocumentSection = {
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Heading
+     */
+    heading: string | null;
+    /**
+     * Text
+     */
+    text: string;
+};
+
+/**
+ * DocumentSummary
+ */
+export type DocumentSummary = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Type
+     */
+    type: 'slides';
+    status: FileProcessingStatus;
+    course: Course;
+    lecture: Lecture | null;
+};
+
+/**
+ * EnglishChunk
+ */
+export type EnglishChunk = {
+    /**
+     * N
+     */
+    n: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Verified
+     */
+    verified: boolean;
+    /**
+     * Attempts
+     */
+    attempts: number;
+    /**
+     * Paragraphs
+     */
+    paragraphs: Array<EnglishParagraph>;
+};
+
+/**
+ * EnglishLecture
+ */
+export type EnglishLecture = {
+    /**
+     * Audio Url
+     */
+    audio_url: string | null;
+    /**
+     * Duration Seconds
+     */
+    duration_seconds: number;
+    /**
+     * Tts Provider
+     */
+    tts_provider: string | null;
+    /**
+     * Chunks
+     */
+    chunks: Array<EnglishChunk>;
+};
+
+/**
+ * EnglishParagraph
+ */
+export type EnglishParagraph = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Text
+     */
+    text: string;
+    /**
+     * Start
+     */
+    start: number | null;
+    /**
+     * End
+     */
+    end: number | null;
+    /**
+     * Source Start
+     */
+    source_start: number;
+    /**
+     * Source Part
+     */
+    source_part: number;
+    /**
+     * Source Part Start
+     */
+    source_part_start: number;
+};
+
+/**
  * FileProcessingStatus
  */
 export type FileProcessingStatus = 'queued' | 'processing' | 'ready' | 'failed';
@@ -72,6 +457,117 @@ export type HttpValidationError = {
      */
     detail?: Array<ValidationError>;
 };
+
+/**
+ * JobSummary
+ */
+export type JobSummary = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Task
+     */
+    task: string;
+    /**
+     * Queue
+     */
+    queue: string;
+    /**
+     * Status
+     */
+    status: 'todo' | 'doing' | 'succeeded' | 'failed' | 'cancelled' | 'aborting' | 'aborted';
+    /**
+     * Lecture Id
+     */
+    lecture_id: string | null;
+    /**
+     * Lecture Title
+     */
+    lecture_title: string | null;
+    /**
+     * Document Id
+     */
+    document_id: string | null;
+    /**
+     * Scheduled At
+     */
+    scheduled_at: string;
+    /**
+     * Attempts
+     */
+    attempts: number;
+    /**
+     * Error
+     */
+    error: string | null;
+};
+
+/**
+ * Lecture
+ */
+export type Lecture = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string;
+};
+
+/**
+ * LectureDocument
+ */
+export type LectureDocument = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string;
+};
+
+/**
+ * LecturePart
+ *
+ * One recording of the lecture. `offset` places it on the shared timeline.
+ */
+export type LecturePart = {
+    /**
+     * N
+     */
+    n: number;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Offset
+     */
+    offset: number;
+    /**
+     * Duration
+     */
+    duration: number;
+    /**
+     * Audio Url
+     */
+    audio_url: string;
+};
+
+/**
+ * LectureStatus
+ *
+ * Original lecture: uploaded -> transcribing -> transcribed -> translating -> indexing -> ready.
+ * English lecture (optional, on top of ready): chunking -> scripting -> voicing -> assembling
+ * -> english_ready. `failed` can follow any of them.
+ */
+export type LectureStatus = 'uploaded' | 'transcribing' | 'transcribed' | 'translating' | 'indexing' | 'ready' | 'chunking' | 'scripting' | 'voicing' | 'assembling' | 'english_ready' | 'failed';
 
 /**
  * LectureSummary
@@ -93,6 +589,19 @@ export type LectureSummary = {
      * Summary
      */
     summary: string;
+    status: LectureStatus;
+    /**
+     * Duration Seconds
+     */
+    duration_seconds: number;
+    /**
+     * Date
+     */
+    date: string | null;
+    /**
+     * Has English
+     */
+    has_english: boolean;
 };
 
 /**
@@ -168,9 +677,18 @@ export type TranscriptDetails = {
      */
     id: string;
     /**
+     * Course Id
+     */
+    course_id: string;
+    /**
      * Title
      */
     title: string;
+    status: LectureStatus;
+    /**
+     * Error
+     */
+    error: string | null;
     /**
      * Audio Url
      */
@@ -180,9 +698,18 @@ export type TranscriptDetails = {
      */
     duration_seconds: number;
     /**
+     * Parts
+     */
+    parts: Array<LecturePart>;
+    /**
      * Transcript Segments
      */
     transcript_segments: Array<TranscriptSegment>;
+    english: EnglishLecture | null;
+    /**
+     * Documents
+     */
+    documents: Array<LectureDocument>;
 };
 
 /**
@@ -369,6 +896,91 @@ export type ListCoursesResponses = {
 
 export type ListCoursesResponse = ListCoursesResponses[keyof ListCoursesResponses];
 
+export type CreateCourseData = {
+    body: CourseCreate;
+    path?: never;
+    query?: never;
+    url: '/api/courses';
+};
+
+export type CreateCourseErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateCourseError = CreateCourseErrors[keyof CreateCourseErrors];
+
+export type CreateCourseResponses = {
+    /**
+     * Successful Response
+     */
+    201: CourseSummary;
+};
+
+export type CreateCourseResponse = CreateCourseResponses[keyof CreateCourseResponses];
+
+export type DeleteCourseData = {
+    body?: never;
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/courses/{course_id}';
+};
+
+export type DeleteCourseErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteCourseError = DeleteCourseErrors[keyof DeleteCourseErrors];
+
+export type DeleteCourseResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteCourseResponse = DeleteCourseResponses[keyof DeleteCourseResponses];
+
+export type GetCourseData = {
+    body?: never;
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/courses/{course_id}';
+};
+
+export type GetCourseErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetCourseError = GetCourseErrors[keyof GetCourseErrors];
+
+export type GetCourseResponses = {
+    /**
+     * Successful Response
+     */
+    200: CourseSummary;
+};
+
+export type GetCourseResponse = GetCourseResponses[keyof GetCourseResponses];
+
 export type ListLecturesData = {
     body?: never;
     path: {
@@ -401,35 +1013,97 @@ export type ListLecturesResponses = {
 
 export type ListLecturesResponse = ListLecturesResponses[keyof ListLecturesResponses];
 
-export type GetLectureData = {
+export type ListDocumentsData = {
     body?: never;
     path: {
         /**
-         * Lecture Id
+         * Course Id
          */
-        lecture_id: string;
+        course_id: string;
     };
     query?: never;
-    url: '/api/lectures/{lecture_id}';
+    url: '/api/courses/{course_id}/documents';
 };
 
-export type GetLectureErrors = {
+export type ListDocumentsErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type GetLectureError = GetLectureErrors[keyof GetLectureErrors];
+export type ListDocumentsError = ListDocumentsErrors[keyof ListDocumentsErrors];
 
-export type GetLectureResponses = {
+export type ListDocumentsResponses = {
+    /**
+     * Response List Documents
+     *
+     * Successful Response
+     */
+    200: Array<DocumentSummary>;
+};
+
+export type ListDocumentsResponse = ListDocumentsResponses[keyof ListDocumentsResponses];
+
+export type GetChatSelectionData = {
+    body?: never;
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/courses/{course_id}/chat-selection';
+};
+
+export type GetChatSelectionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetChatSelectionError = GetChatSelectionErrors[keyof GetChatSelectionErrors];
+
+export type GetChatSelectionResponses = {
     /**
      * Successful Response
      */
-    200: TranscriptDetails;
+    200: ChatSelectionOutput;
 };
 
-export type GetLectureResponse = GetLectureResponses[keyof GetLectureResponses];
+export type GetChatSelectionResponse = GetChatSelectionResponses[keyof GetChatSelectionResponses];
+
+export type SetChatSelectionData = {
+    body: ChatSelectionInput;
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/courses/{course_id}/chat-selection';
+};
+
+export type SetChatSelectionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SetChatSelectionError = SetChatSelectionErrors[keyof SetChatSelectionErrors];
+
+export type SetChatSelectionResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChatSelectionOutput;
+};
+
+export type SetChatSelectionResponse = SetChatSelectionResponses[keyof SetChatSelectionResponses];
 
 export type CourseMindmapData = {
     body?: never;
@@ -461,20 +1135,481 @@ export type CourseMindmapResponses = {
 
 export type CourseMindmapResponse = CourseMindmapResponses[keyof CourseMindmapResponses];
 
-export type StatusValuesData = {
+export type RefreshCourseMindmapData = {
     body?: never;
-    path?: never;
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
     query?: never;
-    url: '/api/jobs/status-values';
+    url: '/api/courses/{course_id}/mindmap/refresh';
 };
 
-export type StatusValuesResponses = {
+export type RefreshCourseMindmapErrors = {
     /**
-     * Response Status Values
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RefreshCourseMindmapError = RefreshCourseMindmapErrors[keyof RefreshCourseMindmapErrors];
+
+export type RefreshCourseMindmapResponses = {
+    /**
+     * Successful Response
+     */
+    200: MindMapResponse;
+};
+
+export type RefreshCourseMindmapResponse = RefreshCourseMindmapResponses[keyof RefreshCourseMindmapResponses];
+
+export type CreateLectureData = {
+    body: BodyCreateLecture;
+    path?: never;
+    query?: never;
+    url: '/api/lectures';
+};
+
+export type CreateLectureErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateLectureError = CreateLectureErrors[keyof CreateLectureErrors];
+
+export type CreateLectureResponses = {
+    /**
+     * Successful Response
+     */
+    201: Lecture;
+};
+
+export type CreateLectureResponse = CreateLectureResponses[keyof CreateLectureResponses];
+
+export type DeleteLectureData = {
+    body?: never;
+    path: {
+        /**
+         * Lecture Id
+         */
+        lecture_id: string;
+    };
+    query?: never;
+    url: '/api/lectures/{lecture_id}';
+};
+
+export type DeleteLectureErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteLectureError = DeleteLectureErrors[keyof DeleteLectureErrors];
+
+export type DeleteLectureResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteLectureResponse = DeleteLectureResponses[keyof DeleteLectureResponses];
+
+export type GetLectureData = {
+    body?: never;
+    path: {
+        /**
+         * Lecture Id
+         */
+        lecture_id: string;
+    };
+    query?: never;
+    url: '/api/lectures/{lecture_id}';
+};
+
+export type GetLectureErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetLectureError = GetLectureErrors[keyof GetLectureErrors];
+
+export type GetLectureResponses = {
+    /**
+     * Successful Response
+     */
+    200: TranscriptDetails;
+};
+
+export type GetLectureResponse = GetLectureResponses[keyof GetLectureResponses];
+
+export type GetSummaryData = {
+    body?: never;
+    path: {
+        /**
+         * Lecture Id
+         */
+        lecture_id: string;
+    };
+    query?: never;
+    url: '/api/lectures/{lecture_id}/summary';
+};
+
+export type GetSummaryErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetSummaryError = GetSummaryErrors[keyof GetSummaryErrors];
+
+export type GetSummaryResponses = {
+    /**
+     * Successful Response
+     */
+    200: LectureSummary;
+};
+
+export type GetSummaryResponse = GetSummaryResponses[keyof GetSummaryResponses];
+
+export type LectureMindmapData = {
+    body?: never;
+    path: {
+        /**
+         * Lecture Id
+         */
+        lecture_id: string;
+    };
+    query?: never;
+    url: '/api/lectures/{lecture_id}/mindmap';
+};
+
+export type LectureMindmapErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LectureMindmapError = LectureMindmapErrors[keyof LectureMindmapErrors];
+
+export type LectureMindmapResponses = {
+    /**
+     * Successful Response
+     */
+    200: MindMapResponse;
+};
+
+export type LectureMindmapResponse = LectureMindmapResponses[keyof LectureMindmapResponses];
+
+export type RefreshLectureMindmapData = {
+    body?: never;
+    path: {
+        /**
+         * Lecture Id
+         */
+        lecture_id: string;
+    };
+    query?: never;
+    url: '/api/lectures/{lecture_id}/mindmap/refresh';
+};
+
+export type RefreshLectureMindmapErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RefreshLectureMindmapError = RefreshLectureMindmapErrors[keyof RefreshLectureMindmapErrors];
+
+export type RefreshLectureMindmapResponses = {
+    /**
+     * Successful Response
+     */
+    200: MindMapResponse;
+};
+
+export type RefreshLectureMindmapResponse = RefreshLectureMindmapResponses[keyof RefreshLectureMindmapResponses];
+
+export type CreateEnglishData = {
+    body?: never;
+    path: {
+        /**
+         * Lecture Id
+         */
+        lecture_id: string;
+    };
+    query?: never;
+    url: '/api/lectures/{lecture_id}/english';
+};
+
+export type CreateEnglishErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateEnglishError = CreateEnglishErrors[keyof CreateEnglishErrors];
+
+export type CreateEnglishResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
+export type RerunChunkData = {
+    body?: never;
+    path: {
+        /**
+         * Lecture Id
+         */
+        lecture_id: string;
+        /**
+         * N
+         */
+        n: number;
+    };
+    query?: never;
+    url: '/api/lectures/{lecture_id}/english/chunks/{n}/rerun';
+};
+
+export type RerunChunkErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RerunChunkError = RerunChunkErrors[keyof RerunChunkErrors];
+
+export type RerunChunkResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
+export type CreateDocumentData = {
+    body: BodyCreateDocument;
+    path?: never;
+    query?: never;
+    url: '/api/documents';
+};
+
+export type CreateDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateDocumentError = CreateDocumentErrors[keyof CreateDocumentErrors];
+
+export type CreateDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    201: DocumentSummary;
+};
+
+export type CreateDocumentResponse = CreateDocumentResponses[keyof CreateDocumentResponses];
+
+export type DeleteDocumentData = {
+    body?: never;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/documents/{document_id}';
+};
+
+export type DeleteDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteDocumentError = DeleteDocumentErrors[keyof DeleteDocumentErrors];
+
+export type DeleteDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteDocumentResponse = DeleteDocumentResponses[keyof DeleteDocumentResponses];
+
+export type GetDocumentData = {
+    body?: never;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/documents/{document_id}';
+};
+
+export type GetDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetDocumentError = GetDocumentErrors[keyof GetDocumentErrors];
+
+export type GetDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: DocumentDetails;
+};
+
+export type GetDocumentResponse = GetDocumentResponses[keyof GetDocumentResponses];
+
+export type ListJobsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Status
+         *
+         * todo | doing | succeeded | failed
+         */
+        status?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/jobs';
+};
+
+export type ListJobsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListJobsError = ListJobsErrors[keyof ListJobsErrors];
+
+export type ListJobsResponses = {
+    /**
+     * Response List Jobs
      *
      * Successful Response
      */
-    200: Array<FileProcessingStatus>;
+    200: Array<JobSummary>;
 };
 
-export type StatusValuesResponse = StatusValuesResponses[keyof StatusValuesResponses];
+export type ListJobsResponse = ListJobsResponses[keyof ListJobsResponses];
+
+export type RetryJobData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: number;
+    };
+    query?: never;
+    url: '/api/jobs/{job_id}/retry';
+};
+
+export type RetryJobErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RetryJobError = RetryJobErrors[keyof RetryJobErrors];
+
+export type RetryJobResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
+export type ChatData = {
+    body: ChatRequest;
+    path?: never;
+    query?: never;
+    url: '/api/chat';
+};
+
+export type ChatErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ChatError = ChatErrors[keyof ChatErrors];
+
+export type ChatResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChatResponse;
+};
+
+export type ChatResponse2 = ChatResponses[keyof ChatResponses];
+
+export type HistoryData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+        /**
+         * Lecture Id
+         */
+        lecture_id?: string | null;
+        /**
+         * Document Id
+         */
+        document_id?: string | null;
+    };
+    url: '/api/chat/history';
+};
+
+export type HistoryErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type HistoryError = HistoryErrors[keyof HistoryErrors];
+
+export type HistoryResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChatHistory;
+};
+
+export type HistoryResponse = HistoryResponses[keyof HistoryResponses];

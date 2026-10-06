@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button'
 // (401 from /api/auth/me) sends the user to the login page.
 export const Route = createFileRoute('/_authed')({
   beforeLoad: async ({ context }) => {
+    // retry: false: a 401 means "not signed in", not a glitch worth retrying (retries also stall in background tabs).
     try {
-      return { user: await context.queryClient.ensureQueryData(getMeOptions()) }
+      return { user: await context.queryClient.ensureQueryData({ ...getMeOptions(), retry: false }) }
     } catch {
       throw redirect({ to: '/login' })
     }
@@ -38,6 +39,9 @@ function AuthedLayout() {
           </Link>
           <Link to="/activity" className="text-sm text-muted-foreground [&.active]:text-foreground">
             Activity
+          </Link>
+          <Link to="/settings" className="text-sm text-muted-foreground [&.active]:text-foreground">
+            Settings
           </Link>
           <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
             {user.username}

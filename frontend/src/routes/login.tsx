@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 export const Route = createFileRoute('/login')({
   // Already signed in: skip the form.
   beforeLoad: async ({ context }) => {
-    const user = await context.queryClient.fetchQuery({ ...getMeOptions(), staleTime: 0 }).catch(() => null)
+    const user = await context.queryClient.fetchQuery({ ...getMeOptions(), staleTime: 0, retry: false }).catch(() => null)
     if (user) throw redirect({ to: '/' })
   },
   component: Login,
