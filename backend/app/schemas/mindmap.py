@@ -1,17 +1,18 @@
 import uuid
 
-from pydantic import BaseModel
+from app.schemas.base import ApiModel
 
-class MindMapNode(BaseModel):
+
+class MindMapNode(ApiModel):
     id: uuid.UUID
     label: str
     summary: str
 
-class MindMapEdge(BaseModel):
+class MindMapEdge(ApiModel):
     source: str
     target: str
     relation: str
 
-class MindMapResponse(BaseModel):
+class MindMapResponse(ApiModel):
     nodes: list[MindMapNode]
     edges: list[MindMapEdge]

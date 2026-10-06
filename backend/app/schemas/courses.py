@@ -1,9 +1,10 @@
-import uuid
 import datetime
+import uuid
 
-from pydantic import BaseModel
+from app.schemas.base import ApiModel
 
-class Course(BaseModel):
+
+class Course(ApiModel):
     id: uuid.UUID
     name: str
 
@@ -12,3 +13,7 @@ class CourseSummary(Course):
     document_count: int
     last_activity_at: datetime.datetime
     has_active_jobs: bool
+
+
+class CourseCreate(ApiModel):
+    name: str

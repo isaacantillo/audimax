@@ -1,22 +1,22 @@
 import uuid
 
-from pydantic import BaseModel
+from app.schemas.base import ApiModel
 
 
-class LoginRequest(BaseModel):
+class LoginRequest(ApiModel):
     username: str
     password: str
 
 
-class UserOut(BaseModel):
+class UserOut(ApiModel):
     id: uuid.UUID
     username: str
 
 
-class ApiTokenRequest(BaseModel):
+class ApiTokenRequest(ApiModel):
     name: str  # e.g. "iPhone Shortcut"
 
 
-class ApiTokenResponse(BaseModel):
+class ApiTokenResponse(ApiModel):
     name: str
     token: str  # shown once; only its hash is stored

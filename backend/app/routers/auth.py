@@ -1,23 +1,36 @@
 import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import COOKIE_NAME, check_password, current_session, current_user, new_token
+from app.auth import (
+    COOKIE_NAME,
+    check_password,
+    current_session,
+    current_user,
+    new_token,
+)
 from app.config import settings
 from app.db import get_session
 from app.models import AuthSession, User
+from app.ratelimit import FailureLimiter
 from app.schemas.login import ApiTokenRequest, ApiTokenResponse, LoginRequest, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+login_failures = FailureLimiter()
 
 
 @router.post("/login", response_model=UserOut)
-async def login(body: LoginRequest, response: Response, db: AsyncSession = Depends(get_session)):
+async def login(body: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_session)):
+    key = request.client.host if request.client else "unknown"
+    if login_failures.blocked(key):
+        raise HTTPException(429, "Too many failed attempts. Try again later.", headers={"Retry-After": str(login_failures.retry_after(key))})
     user = (await db.execute(select(User).where(User.username == body.username))).scalar_one_or_none()
     if not check_password(user.password_hash if user else None, body.password) or user is None:
+        login_failures.fail(key)
         raise HTTPException(401, "Wrong username or password")
+    login_failures.reset(key)
 
     token, token_hash = new_token()
     expires = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=settings.session_days)

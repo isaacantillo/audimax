@@ -1,14 +1,15 @@
-import uuid
 import datetime
+import uuid
 from typing import Literal
 
-from pydantic import BaseModel
+from app.schemas.base import ApiModel
 
-from .enums import FileProcessingStatus
 from .courses import Course
+from .enums import FileProcessingStatus
 from .lectures import Lecture
 
-class File(BaseModel):
+
+class File(ApiModel):
     id: uuid.UUID
     title: str
 
@@ -26,3 +27,14 @@ class AudioSummary(File):
     status: FileProcessingStatus
 
 
+class DocumentSection(ApiModel):
+    page: int
+    heading: str | None
+    text: str
+
+
+class DocumentDetails(DocumentSummary):
+    file_url: str
+    page_count: int
+    error: str | None = None
+    sections: list[DocumentSection]

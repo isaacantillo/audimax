@@ -9,11 +9,12 @@ from sqlalchemy import func, select
 from app.auth import current_user, hash_password
 from app.config import settings
 from app.db import SessionLocal
+from app.http_cache import cache_headers
+from app.jobs.queue import task_queue
 from app.models import User
-from app.routers import auth, dummy
+from app.routers import auth, chat, courses, documents, jobs, lectures, media
 
 log = logging.getLogger("audimax")
-
 
 
 def operation_id(route: APIRoute) -> str:
@@ -23,7 +24,8 @@ def operation_id(route: APIRoute) -> str:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Create the single user on first start. Migrations run in the `migrate` service."""
+    """Open the job queue (the app only enqueues; the worker service runs the jobs) and create the
+    single user on first start. Migrations run in the `migrate` service."""
     async with SessionLocal() as db:
         if await db.scalar(select(func.count()).select_from(User)) == 0:
             if settings.admin_password:
@@ -32,10 +34,16 @@ async def lifespan(_: FastAPI):
                 log.warning("created user %r", settings.admin_username)
             else:
                 log.warning("no users exist and ADMIN_PASSWORD is not set: nobody can log in")
-    yield
+    async with task_queue.open_async():
+        yield
 
 
 app = FastAPI(title="Audimax", generate_unique_id_function=operation_id, lifespan=lifespan)
+
+
+
+app.middleware("http")(cache_headers)
+
 
 api = APIRouter(prefix="/api")
 
@@ -47,7 +55,8 @@ def health() -> dict[str, str]:
 
 api.include_router(auth.router)
 # Everything except /health and /auth/login requires a session cookie or bearer token.
-api.include_router(dummy.router, dependencies=[Depends(current_user)])
+for router in (courses, lectures, documents, jobs, chat, media):
+    api.include_router(router.router, dependencies=[Depends(current_user)])
 app.include_router(api)
 
 # Low priority: every /api route above is matched first; anything else is served from the

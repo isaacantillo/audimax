@@ -31,16 +31,30 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import wave
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
-from typing import Literal
 
 from audio_to_transcript import openai_client, transcribe
 from pydantic import BaseModel
 from resegment import Segment, parse_segments, translate_segments
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # so `app` is importable from scripts/
+from app.services.english_lecture import (  # noqa: E402
+    CHECKLIST_PROMPT,
+    CHUNK_PROMPT,
+    GLOSSARY_PROMPT,
+    VERIFY_PROMPT,
+    WRITE_PROMPT,
+    Checklist,
+    ChunkPlan,
+    Glossary,
+    Script,
+    Verdict,
+)
 
 # Generation: Gemini primary, Claude fallback (decision #7), via OpenRouter's model fallback list.
 LLM_MODELS = ["google/gemini-3.8-flash", "anthropic/claude-sonnet-5.5"]
@@ -60,100 +74,7 @@ PARAGRAPH_PAUSE = 0.6
 CHUNK_PAUSE = 1.4
 
 
-# ---------- LLM output shapes ----------
-
-class ChunkStart(BaseModel):
-    first_unit: int
-    title: str
-
-
-class ChunkPlan(BaseModel):
-    chunks: list[ChunkStart]
-
-
-class ChecklistItem(BaseModel):
-    id: int
-    kind: Literal["definition", "explanation", "example", "tip", "exam_hint", "fact"]
-    content: str
-    german_terms: list[str]
-
-
-class Checklist(BaseModel):
-    items: list[ChecklistItem]
-
-
-class Term(BaseModel):
-    german: str
-    english: str
-
-
-class Glossary(BaseModel):
-    terms: list[Term]
-
-
-class Paragraph(BaseModel):
-    text: str
-    first_unit: int
-    last_unit: int
-
-
-class Script(BaseModel):
-    paragraphs: list[Paragraph]
-
-
-class Verdict(BaseModel):
-    missing_items: list[int]
-    invented: list[str]
-
-
-# ---------- prompts ----------
-
-CHUNK_PROMPT = """You segment a German university lecture transcript into topic chunks.
-Each line is "[unit id] (mm:ss) sentence". Return the first unit id and a short English title
-for each chunk. A chunk covers one coherent explanation, typically 3-6 minutes of speech.
-Chunks are contiguous and in order; the first chunk starts at unit 0. Pure admin talk
-(room changes, attendance, breaks) may be its own short chunk."""
-
-CHECKLIST_PROMPT = """You extract a complete content checklist from one chunk of a German
-university lecture. List, in order, EVERY definition, explanation step, example, tip, fact and
-exam hint ("das kommt in der Klausur", "merken Sie sich", ...). Be exhaustive: this list is used
-to prove nothing was lost in an English rewrite. Write `content` as one precise English
-sentence. Put the German subject-specific terms involved in `german_terms` exactly as spoken
-(not everyday words like "Klausur"). Course rules count as content: exam format, grading,
-deadlines, submission rules, required materials, recommended reading, academic honesty and
-anything about what is or is not exam-relevant. Skip only filler, false starts, repetition and
-throwaway logistics (mic checks, attendance/QR codes, room changes, breaks); a chunk that is
-nothing but those gets an empty list."""
-
-GLOSSARY_PROMPT = """You pick the German key terms a student must know for a German-language
-exam on this lecture. You get candidate terms with the checklist content they came from.
-Keep only genuine subject terms a student would have to write or recognise in the exam
-(e.g. "Vererbung", "technische Schulden", "Anforderungsdefinition"). Drop:
-- words that are the same or nearly the same in English (Test, Analyse, Integration, Komplexität),
-- English loanwords (Best Practices, Coding), proper names, products, course codes, file names,
-- everyday words (Daten, Klassen, Methoden, programmieren, Folie).
-Usually 5-20 terms per lecture. Use the base form, deduplicated, with the English equivalent."""
-
-WRITE_PROMPT = """You are a fluent English-speaking professor re-delivering a German lecture.
-Rewrite the German chunk below directly into natural spoken English, in the professor's own
-teaching voice: same explanations, same examples, same tips and exam hints, same order.
-It is not a summary and not a sentence-by-sentence dub. Drop filler ("ähm"), repetition,
-false starts and admin talk. Do not add facts, examples or claims that are not in the source.
-
-- Every checklist item must appear in the script.
-- For each term under "Introduce", the first time it comes up, say the English term and then the
-  German one, e.g. "working memory, in German Arbeitsgedächtnis,". Students are examined in German.
-  Say no other German words: everything else is in English only.
-- Write for the ear: short paragraphs (2-5 sentences), no lists, no markdown, no headings,
-  spell out symbols and formulas the way a professor would say them.
-- For each paragraph give the first and last German unit id it is based on."""
-
-VERIFY_PROMPT = """You check an English lecture script against its German source and a
-checklist. Report:
-- missing_items: ids of checklist items that are absent or materially changed in the script.
-- invented: claims, numbers, examples or advice in the script that the German source does not
-  support (paraphrase and natural transitions are fine). Quote each briefly.
-Return empty lists if the script is faithful and complete."""
+# Prompts and structured outputs live in app/services/english_lecture.py, shared with the worker.
 
 
 # ---------- helpers ----------
