@@ -1,5 +1,23 @@
 # Implementation Plan — Audimax full-stack app
 
+> **Status: built.** Steps 1–11 below are implemented and tested (18 backend tests against a real
+> Postgres, the stack exercised end to end through the real queue and worker, and the UI walked in a
+> browser). What was **not** verified is anything that needs paid services or a real host: real
+> OpenRouter/DeepL calls (the account was out of credit; everything runs on the `AI_STUB` fakes),
+> audio playback in a browser (the automation tab suppresses media), and the HTTPS deploy itself.
+> See README.md for how to run it. The rest of this file is the original plan, kept for the *why*.
+>
+> **Deviations from the plan**
+> - Slides are parsed with PyMuPDF (`app/services/documents.py`), not Docling: Docling pulls in a very
+>   large dependency set. The parser is one function, so swapping it in later touches nothing else.
+> - Jobs are one task per *stage* (each internally parallel over chunks/paragraphs), not one task per
+>   chunk with fan-in locking. Stages are idempotent and share a per-lecture lock, so a chunk rerun
+>   is "reset that chunk, run the write/voice/assemble stages again" and costs only the changed text.
+> - Chat answers are plain JSON, not streamed.
+> - Embeddings are requested at 1536 dimensions (pgvector's HNSW limit is 2000 for `vector`).
+> - Added beyond the plan: `AI_STUB` offline mode, login rate limiting, cache headers so a deploy
+>   never leaves browsers on a deleted bundle, `scripts/backup.sh`.
+
 Companion to `PROJECT_BUILD_PLAN.md`. That file holds the *why*; this one holds the *what and in which order*. Follows the API-first sequence from the build plan: screens → response shapes → endpoints → service layer → DB models last.
 
 Verified against the installed versions while writing: FastAPI 0.141.1 (`app.frontend()` exists), Python 3.14, Docker 29 / Compose v5, Node 25, pnpm 11.

@@ -1,0 +1,35 @@
+# Production overlay. Use it WITHOUT the dev override:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+services:
+  db:
+    restart: unless-stopped
+
+  app:
+    restart: unless-stopped
+    ports: !reset []   # only Caddy is reachable from outside
+    environment:
+      COOKIE_SECURE: "true"
+    # Caddy is another container, so trust its X-Forwarded-* headers (real client IP for the login rate limit).
+    command: ["fastapi", "run", "app/main.py", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+
+  worker:
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env (e.g. audimax.example.com)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

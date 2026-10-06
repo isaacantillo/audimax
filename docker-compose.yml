@@ -1,3 +1,13 @@
+x-backend: &backend
+  build: { context: ., dockerfile: backend/Dockerfile }
+  env_file: .env
+  environment: &backend-env
+    DATABASE_URL: postgresql+psycopg://audimax:${POSTGRES_PASSWORD:-audimax}@db:5432/audimax
+    AI_STUB: ${AI_STUB:-false}
+  volumes:
+    # Only used while R2 is not configured; with R2 credentials set nothing is written here.
+    - storage:/code/data/storage
+
 services:
   db:
     image: pgvector/pgvector:pg17
@@ -12,29 +22,34 @@ services:
       interval: 5s
       retries: 10
 
+  # One-shot: creates/updates every table, including the job queue's.
   migrate:
-    build: { context: ., dockerfile: backend/Dockerfile }
-    env_file: .env
-    environment:
-      DATABASE_URL: postgresql+psycopg://audimax:${POSTGRES_PASSWORD:-audimax}@db:5432/audimax
+    <<: *backend
     depends_on:
       db: { condition: service_healthy }
     command: ["alembic", "upgrade", "head"]
     restart: "no"
 
   app:
-    build: { context: ., dockerfile: backend/Dockerfile }
-    env_file: .env
-    environment:
-      DATABASE_URL: postgresql+psycopg://audimax:${POSTGRES_PASSWORD:-audimax}@db:5432/audimax
+    <<: *backend
     depends_on:
       migrate: { condition: service_completed_successfully }
     ports:
       - "8000:8000"
+    command: ["fastapi", "run", "app/main.py", "--port", "8000", "--proxy-headers"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 10s
       retries: 5
 
+  # Runs the background jobs: transcription, translation, the English lecture, slides.
+  worker:
+    <<: *backend
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    command: ["procrastinate", "--app=app.jobs.queue.task_queue", "worker", "--concurrency=4"]
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  storage:

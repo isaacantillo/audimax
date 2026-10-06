@@ -20,6 +20,6 @@ COPY backend/app ./app
 COPY backend/alembic ./alembic
 COPY backend/alembic.ini .
 COPY --from=frontend /fe/dist ./dist
-ENV PATH="/code/.venv/bin:$PATH"
+ENV PATH="/code/.venv/bin:$PATH" PYTHONPATH=/code
 EXPOSE 8000
 CMD ["fastapi", "run", "app/main.py", "--port", "8000", "--proxy-headers"]

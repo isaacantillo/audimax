@@ -17,3 +17,6 @@ backend/openapi.json
 .env
 .env.*
 !.env.example
+
+# Database dumps
+backups/
