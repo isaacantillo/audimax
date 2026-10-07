@@ -28,7 +28,7 @@ async def run_original(lecture_id):
 
 
 async def run_english(lecture_id):
-    for stage in (p.run_english_plan, p.run_english_write, p.run_english_voice, p.run_english_assemble):
+    for stage in (p.run_english_plan, p.run_english_write):
         await stage(lecture_id)
 
 
@@ -73,21 +73,17 @@ async def test_upload_process_and_read_a_lecture(authed, tmp_path, deferred):
     # English lecture
     assert (await authed.post(f"/api/lectures/{lecture['id']}/english")).status_code == 202
     assert (await authed.get(f"/api/lectures/{lecture['id']}")).json()["status"] == "chunking"
-    for stage in (p.run_english_plan, p.run_english_write, p.run_english_voice, p.run_english_assemble):
+    for stage in (p.run_english_plan, p.run_english_write):
         await stage(lid)
 
     detail = (await authed.get(f"/api/lectures/{lecture['id']}")).json()
-    english = detail["english"]
-    assert detail["status"] == "english_ready" and english["audio_url"].startswith("/api/media/lectures/")
-    paragraphs = [x for c in english["chunks"] for x in c["paragraphs"]]
-    assert paragraphs and all(x["end"] > x["start"] for x in paragraphs)
+    assert detail["status"] == "english_ready"
+    paragraphs = [x for c in detail["english"]["chunks"] for x in c["paragraphs"]]
+    assert paragraphs and set(detail["english"]) == {"chunks"}, "the English version is text only"
+    assert all(set(x) == {"id", "text", "source_start", "source_part", "source_part_start"} for x in paragraphs)
     # "Hear original" lands in the right recording at the right time.
     late = max(paragraphs, key=lambda x: x["source_start"])
     assert late["source_part"] == 1 and late["source_part_start"] == pytest.approx(late["source_start"] - detail["parts"][1]["offset"], abs=0.01)
-
-    # Audio is served (local storage in tests).
-    audio = await authed.get(english["audio_url"])
-    assert audio.status_code == 200 and audio.headers["content-type"] == "audio/mpeg" and len(audio.content) > 1000
 
     # Rerun one chunk.
     assert (await authed.post(f"/api/lectures/{lecture['id']}/english/chunks/0/rerun")).status_code == 202
@@ -97,7 +93,7 @@ async def test_upload_process_and_read_a_lecture(authed, tmp_path, deferred):
     # Lists and summary
     lectures = (await authed.get(f"/api/courses/{course['id']}/lectures")).json()
     assert lectures[0]["has_english"] and "Stub summary" in lectures[0]["summary"]
-    assert (await authed.get(f"/api/lectures/{lecture['id']}/summary")).json()["status"] in ("scripting", "english_ready")
+    assert (await authed.get(f"/api/lectures/{lecture['id']}/summary")).json()["status"] == "scripting"
     assert (await authed.get("/api/courses")).json()[0]["has_active_jobs"] is True  # mid-rerun
 
 
@@ -146,16 +142,17 @@ async def test_search_finds_words_in_transcripts_and_english_scripts(authed, lec
     assert (await authed.get("/api/search", params={"q": "zzzzqqq"})).json() == {"query": "zzzzqqq", "hits": [], "truncated": False}
 
 
-async def test_english_paragraphs_are_only_searchable_once_they_have_audio(authed, lecture_id):
+async def test_english_hits_name_the_paragraph_and_the_moment_in_the_original(authed, lecture_id):
     await run_original(lecture_id)
-    for stage in (p.run_english_plan, p.run_english_write):  # written, not yet voiced
-        await stage(lecture_id)
-    hits = (await authed.get("/api/search", params={"q": "In English"})).json()["hits"]
-    assert hits == [], "a hit without an audio position cannot be opened"
-    for stage in (p.run_english_voice, p.run_english_assemble):
-        await stage(lecture_id)
-    hits = (await authed.get("/api/search", params={"q": "In English"})).json()["hits"]
-    assert hits and all(h["kind"] == "english" and h["start"] >= 0 for h in hits)
+    await run_english(lecture_id)
+    hits = [h for h in (await authed.get("/api/search", params={"q": "In English"})).json()["hits"] if h["kind"] == "english"]
+    assert hits and all(h["paragraph_id"] and h["text"].startswith("In English") for h in hits)
+
+    detail = (await authed.get(f"/api/lectures/{lecture_id}")).json()
+    by_id = {x["id"]: x for c in detail["english"]["chunks"] for x in c["paragraphs"]}
+    assert {h["paragraph_id"] for h in hits} == set(by_id)
+    assert all(h["start"] == pytest.approx(by_id[h["paragraph_id"]]["source_start"]) for h in hits), "start is the original's time"
+    assert all(h["paragraph_id"] is None for h in (await authed.get("/api/search", params={"q": "Wort"})).json()["hits"] if h["kind"] == "transcript")
 
 
 async def test_jobs_list_and_retry_only_failed(authed):

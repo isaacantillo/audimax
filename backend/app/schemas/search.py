@@ -9,9 +9,8 @@ class SearchHit(ApiModel):
     lecture_title: str
     course_id: uuid.UUID
     kind: Literal["transcript", "english"]
-    # transcript: seconds on the lecture timeline (the original recordings);
-    # english: seconds in the English audio.
-    start: float
+    start: float  # seconds on the lecture timeline: the sentence, or where the paragraph begins in the original
+    paragraph_id: str | None  # english hits: which paragraph of the English version ("03.02")
     text: str  # the German sentence, or the English script paragraph
     text_translated: str | None  # English translation of a German sentence
 

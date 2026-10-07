@@ -22,8 +22,6 @@ export const STATUS_LABEL: Record<LectureStatus, string> = {
   ready: 'Ready',
   chunking: 'English: planning',
   scripting: 'English: writing',
-  voicing: 'English: voicing',
-  assembling: 'English: assembling',
   english_ready: 'English ready',
   failed: 'Failed',
 }

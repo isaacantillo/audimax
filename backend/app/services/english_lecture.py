@@ -1,13 +1,7 @@
-"""The English re-performed lecture: prompts, structured outputs and the blocking/async helpers
-used by the worker (app/jobs) and by scripts/pipeline.py (CLI)."""
+"""The English re-performed lecture (a text script): prompts, structured outputs and helpers used by
+the worker (app/jobs) and by scripts/pipeline.py (CLI)."""
 
-import asyncio
-import hashlib
-import subprocess
-import tempfile
-import wave
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel
@@ -16,9 +10,6 @@ from app.services import llm
 from app.services.transcription import Unit
 
 MAX_WRITE_ATTEMPTS = 3
-SAMPLE_RATE = 24_000
-PARAGRAPH_PAUSE = 0.6
-CHUNK_PAUSE = 1.4
 
 
 # ---------- LLM output shapes ----------
@@ -260,60 +251,3 @@ async def write_chunk(
         first = min(max(p.first_unit, lo), hi)
         paragraphs.append(Paragraph(text=p.text, first_unit=first, last_unit=min(max(p.last_unit, first), hi)))
     return WrittenChunk(paragraphs, ok, attempt, {**verdict.model_dump(), "missing_terms": absent})
-
-
-def clip_key(lecture_id, provider_model: str, voice: str, text: str) -> str:
-    digest = hashlib.sha1(f"{provider_model}|{voice}|{text}".encode()).hexdigest()[:16]
-    return f"lectures/{lecture_id}/clips/{digest}.wav"
-
-
-def wav_seconds(path: Path) -> float:
-    with wave.open(str(path), "rb") as w:
-        return w.getnframes() / w.getframerate()
-
-
-def stitch(chunks: list[list[Path]], out_mp3: Path) -> tuple[list[list[tuple[float, float]]], float]:
-    """Blocking. Normalise each clip's loudness, join with pauses, normalise the whole, write mp3.
-
-    Returns (start, end) seconds for every clip, grouped like `chunks`, and the total duration."""
-    timings: list[list[tuple[float, float]]] = []
-    t = 0.0
-    with tempfile.TemporaryDirectory() as tmp:
-        joined = Path(tmp) / "joined.wav"
-        with wave.open(str(joined), "wb") as out:
-            out.setnchannels(1)
-            out.setsampwidth(2)
-            out.setframerate(SAMPLE_RATE)
-
-            def silence(seconds: float) -> float:
-                frames = int(seconds * SAMPLE_RATE)
-                out.writeframes(b"\x00\x00" * frames)
-                return frames / SAMPLE_RATE
-
-            for clips in chunks:
-                row = []
-                for i, clip in enumerate(clips):
-                    normalised = Path(tmp) / f"c{len(timings)}_{i}.wav"
-                    subprocess.run(
-                        ["ffmpeg", "-v", "error", "-y", "-i", str(clip), "-af", "loudnorm=I=-18:TP=-2",
-                         "-ac", "1", "-ar", str(SAMPLE_RATE), "-c:a", "pcm_s16le", str(normalised)],
-                        check=True,
-                    )
-                    with wave.open(str(normalised), "rb") as w:
-                        out.writeframes(w.readframes(w.getnframes()))
-                        length = w.getnframes() / SAMPLE_RATE
-                    row.append((round(t, 2), round(t + length, 2)))
-                    t += length + silence(PARAGRAPH_PAUSE)
-                if clips:
-                    t += silence(CHUNK_PAUSE - PARAGRAPH_PAUSE)
-                timings.append(row)
-        subprocess.run(
-            ["ffmpeg", "-v", "error", "-y", "-i", str(joined), "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
-             "-ar", str(SAMPLE_RATE), "-ac", "1", "-b:a", "64k", str(out_mp3)],
-            check=True,
-        )
-    return timings, round(t, 2)
-
-
-async def astitch(chunks: list[list[Path]], out_mp3: Path):
-    return await asyncio.to_thread(stitch, chunks, out_mp3)

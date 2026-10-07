@@ -45,15 +45,3 @@ async def english_plan(lecture_id: str) -> None:
 @task_queue.task(name="english_write", queue="llm", retry=RETRY)
 async def english_write(lecture_id: str) -> None:
     await p.run_english_write(uuid.UUID(lecture_id))
-    await defer(english_voice, lecture_id)
-
-
-@task_queue.task(name="english_voice", queue="tts", retry=RETRY)
-async def english_voice(lecture_id: str) -> None:
-    await p.run_english_voice(uuid.UUID(lecture_id))
-    await defer(english_assemble, lecture_id)
-
-
-@task_queue.task(name="english_assemble", queue="media", retry=RETRY)
-async def english_assemble(lecture_id: str) -> None:
-    await p.run_english_assemble(uuid.UUID(lecture_id))

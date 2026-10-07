@@ -131,14 +131,14 @@ export const getSummary = <ThrowOnError extends boolean = false>(options: Option
 /**
  * Create English
  *
- * Build (or rebuild from scratch) the English re-performed lecture. Costs TTS money.
+ * Build (or rebuild from scratch) the English version of the lecture, as text.
  */
 export const createEnglish = <ThrowOnError extends boolean = false>(options: Options<CreateEnglishData, ThrowOnError>): RequestResult<CreateEnglishResponses, CreateEnglishErrors, ThrowOnError> => (options.client ?? client).post<CreateEnglishResponses, CreateEnglishErrors, ThrowOnError>({ url: '/api/lectures/{lecture_id}/english', ...options });
 
 /**
  * Rerun Chunk
  *
- * Rewrite one chunk; only its changed paragraphs are re-voiced, then the audio is re-stitched.
+ * Rewrite one chunk of the English version.
  */
 export const rerunChunk = <ThrowOnError extends boolean = false>(options: Options<RerunChunkData, ThrowOnError>): RequestResult<RerunChunkResponses, RerunChunkErrors, ThrowOnError> => (options.client ?? client).post<RerunChunkResponses, RerunChunkErrors, ThrowOnError>({ url: '/api/lectures/{lecture_id}/english/chunks/{n}/rerun', ...options });
 

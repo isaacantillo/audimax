@@ -2,9 +2,7 @@
 
 Good enough to exercise the whole pipeline and UI. The text is obviously fake."""
 
-import math
 import re
-import struct
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -69,14 +67,6 @@ def complete(messages: list[dict[str, str]]) -> str:
     if "SUMMARY_REQUEST" in messages[0]["content"]:
         return "## Summary\n\n- Stub summary of the lecture.\n- Second point."
     return "Stub answer."
-
-
-def speech(text: str, rate: int = 24000) -> bytes:
-    from app.services.llm import pcm_to_wav
-
-    seconds = max(0.5, len(text) * 0.05)
-    samples = (int(32000 * 0.2 * math.sin(2 * math.pi * 330 * i / rate)) for i in range(int(seconds * rate)))
-    return pcm_to_wav(struct.pack(f"<{int(seconds * rate)}h", *samples), rate)
 
 
 def transcript(path: Path) -> dict[str, Any]:

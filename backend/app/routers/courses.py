@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import storage
 from app.db import get_session
-from app.models import Course, Lecture
+from app.models import Chunk, Course, Lecture
 from app.routers.common import get_or_404
 from app.schemas.courses import CourseCreate, CourseSummary
 from app.schemas.enums import IDLE_STATUSES, LectureStatus
@@ -62,6 +62,10 @@ async def list_lectures(course_id: uuid.UUID, db: AsyncSession = Depends(get_ses
     lectures = (await db.execute(
         select(Lecture).where(Lecture.course_id == course_id).order_by(Lecture.date, Lecture.created_at)
     )).scalars()
+    lectures = list(lectures)
+    with_english = set((await db.execute(
+        select(Chunk.lecture_id).where(Chunk.lecture_id.in_([l.id for l in lectures]), Chunk.status == "done").distinct()
+    )).scalars())
     return [
         LectureSummary(
             id=l.id,
@@ -70,7 +74,7 @@ async def list_lectures(course_id: uuid.UUID, db: AsyncSession = Depends(get_ses
             status=LectureStatus(l.status),
             duration_seconds=int(l.duration),
             date=l.date,
-            has_english=l.english_audio_key is not None,
+            has_english=l.id in with_english,
         )
         for l in lectures
     ]

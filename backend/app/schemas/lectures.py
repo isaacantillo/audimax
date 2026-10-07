@@ -39,8 +39,6 @@ class LecturePart(ApiModel):
 class EnglishParagraph(ApiModel):
     id: str  # "03.02" = chunk 3, paragraph 2
     text: str
-    start: float | None  # position in the English audio
-    end: float | None
     source_start: float  # where the German original begins, on the lecture timeline
     source_part: int  # which recording that falls in...
     source_part_start: float  # ...and the time within that file ("hear original")
@@ -56,9 +54,8 @@ class EnglishChunk(ApiModel):
 
 
 class EnglishLecture(ApiModel):
-    audio_url: str | None
-    duration_seconds: int
-    tts_provider: str | None
+    """The re-performed lecture as text, paragraph by paragraph, each linked to its place in the original."""
+
     chunks: list[EnglishChunk]
 
 

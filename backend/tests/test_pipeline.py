@@ -1,13 +1,10 @@
-import subprocess
+from sqlalchemy import select
 
-from sqlalchemy import func, select
-
-from app import storage
 from app.db import SessionLocal
 from app.jobs import pipeline as p
 from app.models import Chunk, Lecture, LecturePart, Paragraph, Unit
 from app.services import english_lecture as el
-from app.services import llm, stub
+from app.services import llm
 
 
 async def lecture_row(lecture_id) -> Lecture:
@@ -24,8 +21,6 @@ async def run_original(lecture_id):
 async def run_english(lecture_id):
     await p.run_english_plan(lecture_id)
     await p.run_english_write(lecture_id)
-    await p.run_english_voice(lecture_id)
-    await p.run_english_assemble(lecture_id)
 
 
 async def test_original_pipeline_joins_parts_on_one_timeline(lecture_id):
@@ -53,84 +48,45 @@ async def test_original_pipeline_joins_parts_on_one_timeline(lecture_id):
     assert "Stub summary" in lecture.summary
 
 
-async def test_english_lecture_end_to_end(lecture_id):
+async def test_english_version_is_written_verified_and_linked_to_the_original(lecture_id):
     await run_original(lecture_id)
-    await run_english(lecture_id)
-
-    lecture = await lecture_row(lecture_id)
-    assert lecture.status == "english_ready"
-    assert lecture.tts_provider == "gemini"
-    assert storage.exists(lecture.english_audio_key)
+    await p.run_english_plan(lecture_id)
+    assert (await lecture_row(lecture_id)).status == "chunking"
+    await p.run_english_write(lecture_id)
+    assert (await lecture_row(lecture_id)).status == "english_ready", "writing the script is the last step: there is no audio"
 
     async with SessionLocal() as db:
         chunks = list((await db.execute(select(Chunk).order_by(Chunk.n))).scalars())
         paragraphs = list((await db.execute(select(Paragraph).order_by(Paragraph.chunk_n, Paragraph.n))).scalars())
+        units = {u.n: u for u in (await db.execute(select(Unit))).scalars()}
     assert len(chunks) > 1 and all(c.status == "done" and c.verified for c in chunks)
-    assert paragraphs and all(x.clip_key and x.start is not None for x in paragraphs)
-    assert all(a.end <= b.start for a, b in zip(paragraphs, paragraphs[1:])), "paragraphs overlap in the audio"
-
-    # The stitched file really is as long as the timings claim.
-    local = storage.local_path(lecture.english_audio_key)
-    seconds = float(subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(local)],
-        capture_output=True, text=True, check=True).stdout)
-    assert abs(seconds - lecture.english_duration) < 1.5
-    assert paragraphs[-1].end <= seconds + 0.5
+    assert paragraphs and all(x.text.startswith("In English:") for x in paragraphs)
+    # Every paragraph points back into the German source, in order.
+    assert all(x.first_unit in units and x.last_unit in units and x.first_unit <= x.last_unit for x in paragraphs)
+    firsts = [x.first_unit for x in paragraphs]
+    assert firsts == sorted(firsts)
 
 
-async def test_tts_falls_back_for_the_whole_lecture(lecture_id, monkeypatch):
-    await run_original(lecture_id)
-    await p.run_english_plan(lecture_id)
-    await p.run_english_write(lecture_id)
-
-    calls: list[str] = []
-
-    async def flaky(model: str, voice: str, text: str) -> bytes:
-        calls.append(model)
-        # Gemini works for the first two paragraphs, then dies: those clips must not survive.
-        if "gemini" in model and calls.count(model) > 2:
-            raise RuntimeError("quota exceeded")
-        return stub.speech(text)
-
-    monkeypatch.setattr(llm, "speak", flaky)
-    await p.run_english_voice(lecture_id)
-
-    assert (await lecture_row(lecture_id)).tts_provider == "qwen"
-    qwen = next(m for n, m, _ in __import__("app.config").config.settings.tts_provider_list if n == "qwen")
-    qwen_voice = next(v for n, _, v in __import__("app.config").config.settings.tts_provider_list if n == "qwen")
-    async with SessionLocal() as db:
-        paragraphs = list((await db.execute(select(Paragraph))).scalars())
-    assert all(x.clip_key == el.clip_key(lecture_id, qwen, qwen_voice, x.text) for x in paragraphs), "voices were mixed"
-
-
-async def test_chunk_rerun_only_revoices_changed_paragraphs(lecture_id, monkeypatch):
+async def test_rewriting_one_chunk_leaves_the_others_alone(lecture_id):
     await run_original(lecture_id)
     await run_english(lecture_id)
-    before = (await lecture_row(lecture_id)).english_audio_key
+    async with SessionLocal() as db:
+        before = {(x.chunk_n, x.n): (x.id, x.text) for x in (await db.execute(select(Paragraph))).scalars()}
 
-    calls = []
-    real = stub.speech
-
-    async def counting(model: str, voice: str, text: str) -> bytes:
-        calls.append(text)
-        return real(text)
-
-    monkeypatch.setattr(llm, "speak", counting)
     await p.reset_chunk(lecture_id, 0)
     async with SessionLocal() as db:
         chunk = (await db.execute(select(Chunk).where(Chunk.n == 0))).scalar_one()
         assert chunk.status == "pending"
-        assert await db.scalar(select(func.count()).select_from(Paragraph).where(Paragraph.chunk_id == chunk.id)) == 0
+        remaining = list((await db.execute(select(Paragraph))).scalars())
+    assert remaining and all(x.chunk_n != 0 for x in remaining), "only that chunk's paragraphs are removed"
 
     await p.run_english_write(lecture_id)
-    await p.run_english_voice(lecture_id)
-    await p.run_english_assemble(lecture_id)
-
-    assert calls == [], "identical text must reuse the stored clips instead of paying for TTS again"
-    lecture = await lecture_row(lecture_id)
-    assert lecture.status == "english_ready" and lecture.english_audio_key == before
+    assert (await lecture_row(lecture_id)).status == "english_ready"
     async with SessionLocal() as db:
-        assert await db.scalar(select(func.count()).select_from(Paragraph).where(Paragraph.start.is_(None))) == 0
+        after = {(x.chunk_n, x.n): (x.id, x.text) for x in (await db.execute(select(Paragraph))).scalars()}
+    assert set(after) == set(before)
+    untouched = {k for k in before if k[0] != 0}
+    assert all(after[k] == before[k] for k in untouched), "other chunks keep their very same rows (no rewrite, no new cost)"
 
 
 async def test_failure_marks_the_lecture_with_the_reason(lecture_id, monkeypatch):

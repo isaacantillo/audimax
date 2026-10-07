@@ -1,6 +1,6 @@
 # Audimax
 
-Record German university lectures and get: a transcript with English translation, a study summary, a search box over everything, and an **English re-performed version of each lecture as audio**: every explanation, example, tip and exam hint kept, only the noise removed.
+Record German university lectures and get: a transcript with English translation, a study summary, a search box over everything, and an optional **English version of each lecture, as text**: the lecture re-told in natural English, every explanation, example, tip and exam hint kept, only the noise removed, German key terms given once.
 
 FastAPI + Postgres + a Procrastinate worker on the backend; React, TanStack Router/Query, shadcn on the front, served by FastAPI itself (`app.frontend()`).
 
@@ -13,11 +13,11 @@ docker compose up -d --build
 
 Open <http://localhost:8000> and log in as `ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env`. Four containers: `db`, `migrate` (one-shot, creates the tables), `app` (API + UI), `worker` (all background jobs).
 
-**No credit / no keys?** Set `AI_STUB=true` in `.env`. Transcription, translation, LLM and TTS are replaced by deterministic fakes, so the whole pipeline and UI work offline and for free (the text is obviously fake).
+**No credit / no keys?** Set `AI_STUB=true` in `.env`. Transcription, translation and the LLM are replaced by deterministic fakes, so the whole pipeline and UI work offline and for free (the text is obviously fake).
 
 ### What happens to an upload
 
-`uploaded → transcribing → transcribed → translating → summarizing → ready`, then optionally (button on the lecture, or a checkbox at upload) `chunking → scripting → voicing → assembling → english_ready`. Watch it on the **Activity** page; failed steps show the reason and can be retried. A lecture recorded in several files (`SE1_L1_1.m4a`, `SE1_L1_2.m4a`) is uploaded together and treated as one lecture.
+`uploaded → transcribing → transcribed → translating → summarizing → ready`, then optionally (button on the lecture, or a checkbox at upload) `chunking → scripting → english_ready`. The English version is a checked text: each topic is rewritten, then verified against a checklist of what the German contained, and rewritten again if something is missing or invented. Watch it on the **Activity** page; failed steps show the reason and can be retried. A lecture recorded in several files (`SE1_L1_1.m4a`, `SE1_L1_2.m4a`) is uploaded together and treated as one lecture.
 
 ## Download transcripts
 
@@ -29,7 +29,7 @@ The **Search** page finds a word or phrase in the German transcripts, their Engl
 
 ## Cloudflare R2
 
-Recordings and generated audio go to R2 when `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` are set (dashboard → R2 → Manage R2 API Tokens → Object Read & Write, scoped to the bucket). Otherwise they are stored in a Docker volume, which is fine for trying it out.
+Your recordings go to R2 when `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` are set (dashboard → R2 → Manage R2 API Tokens → Object Read & Write, scoped to the bucket). Otherwise they are stored in a Docker volume, which is fine for trying it out.
 
 ## Phone upload (iOS Shortcut)
 

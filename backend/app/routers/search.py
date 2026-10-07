@@ -37,9 +37,10 @@ async def search(
         .limit(limit + 1)
     )
     paragraphs = (
-        select(Paragraph, Lecture)
+        select(Paragraph, Lecture, Unit.start)
         .join(Lecture, Lecture.id == Paragraph.lecture_id)
-        .where(Paragraph.text.ilike(pattern, escape="\\"), Paragraph.start.is_not(None))
+        .join(Unit, (Unit.lecture_id == Paragraph.lecture_id) & (Unit.n == Paragraph.first_unit))
+        .where(Paragraph.text.ilike(pattern, escape="\\"))
         .order_by(*order, Paragraph.chunk_n, Paragraph.n)
         .limit(limit + 1)
     )
@@ -54,14 +55,14 @@ async def search(
     hits = [
         SearchHit(
             lecture_id=lecture.id, lecture_title=lecture.title, course_id=lecture.course_id, kind="transcript",
-            start=unit.start, text=unit.text_de, text_translated=unit.text_en,
+            start=unit.start, paragraph_id=None, text=unit.text_de, text_translated=unit.text_en,
         )
         for unit, lecture in unit_rows[:limit]
     ] + [
         SearchHit(
             lecture_id=lecture.id, lecture_title=lecture.title, course_id=lecture.course_id, kind="english",
-            start=paragraph.start or 0.0, text=paragraph.text, text_translated=None,
+            start=start, paragraph_id=f"{paragraph.chunk_n:02d}.{paragraph.n:02d}", text=paragraph.text, text_translated=None,
         )
-        for paragraph, lecture in paragraph_rows[:limit]
+        for paragraph, lecture, start in paragraph_rows[:limit]
     ]
     return SearchResponse(query=q.strip(), hits=hits, truncated=truncated)

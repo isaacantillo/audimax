@@ -2,7 +2,6 @@ import re
 import tempfile
 import uuid
 from pathlib import Path
-
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -63,6 +62,10 @@ async def create_lecture(
     return LectureRef(id=lecture.id, title=lecture.title)
 
 
+async def has_english(db: AsyncSession, lecture_id: uuid.UUID) -> bool:
+    return (await db.execute(select(Chunk.id).where(Chunk.lecture_id == lecture_id, Chunk.status == "done").limit(1))).first() is not None
+
+
 def _part_at(parts: list[LecturePart], t: float) -> LecturePart:
     return max((p for p in parts if p.offset <= t), key=lambda p: p.offset, default=parts[0])
 
@@ -84,14 +87,11 @@ async def get_lecture(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_sess
             part = _part_at(parts, t)
             by_chunk.setdefault(p.chunk_id, []).append(
                 s.EnglishParagraph(
-                    id=f"{p.chunk_n:02d}.{p.n:02d}", text=p.text, start=p.start, end=p.end,
+                    id=f"{p.chunk_n:02d}.{p.n:02d}", text=p.text,
                     source_start=t, source_part=part.n, source_part_start=round(t - part.offset, 2),
                 )
             )
         english = s.EnglishLecture(
-            audio_url=media_url(lecture.english_audio_key) if lecture.english_audio_key else None,
-            duration_seconds=int(lecture.english_duration),
-            tts_provider=lecture.tts_provider,
             chunks=[
                 s.EnglishChunk(n=c.n, title=c.title, status=c.status, verified=c.verified, attempts=c.attempts, paragraphs=by_chunk.get(c.id, []))
                 for c in chunks
@@ -155,13 +155,13 @@ async def get_summary(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_sess
     l = await get_or_404(db, Lecture, lecture_id, "Lecture")
     return LectureSummary(
         id=l.id, title=l.title, summary=l.summary or "", status=LectureStatus(l.status),
-        duration_seconds=int(l.duration), date=l.date, has_english=l.english_audio_key is not None,
+        duration_seconds=int(l.duration), date=l.date, has_english=await has_english(db, lecture_id),
     )
 
 
 @router.post("/lectures/{lecture_id}/english", status_code=202)
 async def create_english(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
-    """Build (or rebuild from scratch) the English re-performed lecture. Costs TTS money."""
+    """Build (or rebuild from scratch) the English version of the lecture, as text."""
     l = await get_or_404(db, Lecture, lecture_id, "Lecture")
     if l.status not in READY_FOR_ENGLISH or not l.duration:
         raise HTTPException(409, f"The lecture is {l.status}; wait until it is ready.")
@@ -176,7 +176,7 @@ async def create_english(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_s
 
 @router.post("/lectures/{lecture_id}/english/chunks/{n}/rerun", status_code=202)
 async def rerun_chunk(lecture_id: uuid.UUID, n: int, db: AsyncSession = Depends(get_session)):
-    """Rewrite one chunk; only its changed paragraphs are re-voiced, then the audio is re-stitched."""
+    """Rewrite one chunk of the English version."""
     l = await get_or_404(db, Lecture, lecture_id, "Lecture")
     if l.status not in {"english_ready", "failed"}:
         raise HTTPException(409, f"The lecture is {l.status}; wait until it finishes.")

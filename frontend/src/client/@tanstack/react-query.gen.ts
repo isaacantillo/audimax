@@ -311,7 +311,7 @@ export const getSummaryOptions = (options: Options<GetSummaryData>) => queryOpti
 /**
  * Create English
  *
- * Build (or rebuild from scratch) the English re-performed lecture. Costs TTS money.
+ * Build (or rebuild from scratch) the English version of the lecture, as text.
  */
 export const createEnglishMutation = (options?: Partial<Options<CreateEnglishData>>): UseMutationOptions<unknown, CreateEnglishError, Options<CreateEnglishData>> => {
     const mutationOptions: UseMutationOptions<unknown, CreateEnglishError, Options<CreateEnglishData>> = {
@@ -330,7 +330,7 @@ export const createEnglishMutation = (options?: Partial<Options<CreateEnglishDat
 /**
  * Rerun Chunk
  *
- * Rewrite one chunk; only its changed paragraphs are re-voiced, then the audio is re-stitched.
+ * Rewrite one chunk of the English version.
  */
 export const rerunChunkMutation = (options?: Partial<Options<RerunChunkData>>): UseMutationOptions<unknown, RerunChunkError, Options<RerunChunkData>> => {
     const mutationOptions: UseMutationOptions<unknown, RerunChunkError, Options<RerunChunkData>> = {

@@ -1,5 +1,10 @@
 # Implementation Plan — Audimax full-stack app
 
+> **Audio generation removed (2026-10-07).** No text-to-speech, no stitched English audio, no English
+> player. The English version is now a text script (still planned, written, verified and linked to the
+> original); `lectures`/`paragraphs` lost their audio columns in migration 0002. Everything below about
+> voices, TTS fallback, clips, loudness and the English audio is history.
+>
 > **Scope reduced (2026-10-06).** Chat, mind maps, slide/PDF upload and everything behind them
 > (embeddings, pgvector, retrieval, Tavily web search) were removed to focus on audio and
 > transcripts. A transcript **search** page replaced chat as the way to find things, and the

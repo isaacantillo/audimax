@@ -101,11 +101,11 @@ function SearchPage() {
                 key={i}
                 to="/lectures/$lectureId"
                 params={{ lectureId }}
-                search={hit.kind === 'transcript' ? { t: hit.start } : { mode: 'english', et: hit.start }}
+                search={hit.kind === 'transcript' ? { t: hit.start } : { mode: 'english', t: hit.start, p: hit.paragraph_id ?? undefined }}
                 className="block rounded-md border p-3 transition hover:bg-accent"
               >
                 <div className="mb-1 text-xs text-muted-foreground">
-                  {hit.kind === 'transcript' ? `Original · ${fmt(hit.start)}` : `English version · ${fmt(hit.start)}`}
+                  {hit.kind === 'transcript' ? `Original · ${fmt(hit.start)}` : `English version · from ${fmt(hit.start)} in the original`}
                 </div>
                 <p>{q && <Highlight text={hit.text} query={q} />}</p>
                 {hit.text_translated && <p className="text-muted-foreground">{q && <Highlight text={hit.text_translated} query={q} />}</p>}

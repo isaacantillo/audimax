@@ -15,7 +15,6 @@ from pathlib import Path
 from sqlalchemy import delete, select, update
 
 from app import storage
-from app.config import settings
 from app.db import SessionLocal
 from app.models import (
     Chunk,
@@ -28,7 +27,6 @@ from app.models import (
     Unit as UnitRow,
 )
 from app.services import english_lecture as el
-from app.services import llm
 from app.services import summary as summary_service
 from app.services.transcription import Unit, atranscribe, atranslate, build_units
 
@@ -239,95 +237,11 @@ async def run_english_write(lecture_id: uuid.UUID) -> None:
             await db.commit()
 
     await _gather(write(c) for c in snapshot if c["status"] == "pending")
-
-
-@stage
-async def run_english_voice(lecture_id: uuid.UUID) -> None:
-    """One TTS clip per paragraph. The provider is pinned per lecture: if it fails, the whole
-    lecture is re-voiced with the next one, so the voice never changes mid-lecture."""
-    await set_status(lecture_id, "voicing")
-    async with SessionLocal() as db:
-        lecture = await db.get(Lecture, lecture_id)
-        assert lecture is not None
-        pinned = lecture.tts_provider
-    providers = settings.tts_provider_list
-    ordered = [p for p in providers if p[0] == pinned] + [p for p in providers if p[0] != pinned]
-
-    last_error: Exception | None = None
-    for name, model, voice in ordered:
-        async with SessionLocal() as db:
-            current = (await db.get(Lecture, lecture_id)).tts_provider  # type: ignore[union-attr]
-            if current not in (None, name):
-                await db.execute(update(Paragraph).where(Paragraph.lecture_id == lecture_id).values(clip_key=None))
-            await db.execute(update(Lecture).where(Lecture.id == lecture_id).values(tts_provider=name))
-            await db.commit()
-            paragraphs = list((await db.execute(
-                select(Paragraph).where(Paragraph.lecture_id == lecture_id).order_by(Paragraph.chunk_n, Paragraph.n)
-            )).scalars())
-            todo = [(p.id, p.text) for p in paragraphs]
-
-        async def voice_one(pid: uuid.UUID, text: str, model=model, voice=voice) -> None:
-            key = el.clip_key(lecture_id, model, voice, text)
-            # Clips are content-addressed: an unchanged paragraph is never paid for twice.
-            if not await asyncio.to_thread(storage.exists, key):
-                wav = await llm.speak(model, voice, text)
-                await asyncio.to_thread(storage.put_bytes, key, wav, "audio/wav")
-            async with SessionLocal() as db:
-                await db.execute(update(Paragraph).where(Paragraph.id == pid).values(clip_key=key))
-                await db.commit()
-
-        try:
-            await _gather(voice_one(pid, text) for pid, text in todo)
-        except Exception as exc:  # noqa: BLE001 - any provider failure means "try the next voice"
-            log.warning("TTS provider %s failed (%s); re-voicing the whole lecture with the next one", name, exc)
-            last_error = exc
-            continue
-        return
-    raise RuntimeError(f"all TTS providers failed: {last_error}")
-
-
-@stage
-async def run_english_assemble(lecture_id: uuid.UUID) -> None:
-    await set_status(lecture_id, "assembling")
-    async with SessionLocal() as db:
-        paragraphs = list((await db.execute(
-            select(Paragraph).where(Paragraph.lecture_id == lecture_id).order_by(Paragraph.chunk_n, Paragraph.n)
-        )).scalars())
-    if not paragraphs or any(p.clip_key is None for p in paragraphs):
-        raise RuntimeError("some paragraphs have no audio yet")
-
-    grouped: dict[int, list[Paragraph]] = {}
-    for p in paragraphs:
-        grouped.setdefault(p.chunk_n, []).append(p)
-
-    with tempfile.TemporaryDirectory() as tmp:
-        clip_paths: dict[str, Path] = {}
-        for p in paragraphs:
-            assert p.clip_key
-            dest = Path(tmp) / Path(p.clip_key).name
-            if p.clip_key not in clip_paths:
-                await asyncio.to_thread(storage.get_to_path, p.clip_key, dest)
-                clip_paths[p.clip_key] = dest
-        out = Path(tmp) / "english.mp3"
-        order = sorted(grouped)
-        timings, total = await el.astitch([[clip_paths[p.clip_key] for p in grouped[n]] for n in order], out)  # type: ignore[index]
-        key = f"lectures/{lecture_id}/english.mp3"
-        await asyncio.to_thread(storage.put_file, key, out, "audio/mpeg")
-
-    async with SessionLocal() as db:
-        for n, row in zip(order, timings, strict=True):
-            for p, (start, end) in zip(grouped[n], row, strict=True):
-                await db.execute(update(Paragraph).where(Paragraph.id == p.id).values(start=start, end=end))
-        await db.execute(
-            update(Lecture).where(Lecture.id == lecture_id).values(
-                english_audio_key=key, english_duration=total, status="english_ready", error=None
-            )
-        )
-        await db.commit()
+    await set_status(lecture_id, "english_ready")
 
 
 async def reset_chunk(lecture_id: uuid.UUID, n: int) -> None:
-    """Make one chunk be rewritten (and re-voiced) on the next english_write run."""
+    """Make one chunk be rewritten on the next english_write run."""
     async with SessionLocal() as db:
         chunk = (await db.execute(select(Chunk).where(Chunk.lecture_id == lecture_id, Chunk.n == n))).scalar_one()
         if not chunk.checklist:

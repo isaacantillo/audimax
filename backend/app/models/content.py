@@ -45,10 +45,6 @@ class Lecture(Base):
     error: Mapped[str | None] = mapped_column(Text)
     duration: Mapped[float] = mapped_column(Float, default=0)
     summary: Mapped[str | None] = mapped_column(Text)
-    # English re-performed lecture
-    tts_provider: Mapped[str | None] = mapped_column(String(20))
-    english_audio_key: Mapped[str | None] = mapped_column(String(500))
-    english_duration: Mapped[float] = mapped_column(Float, default=0)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=_now)
     updated_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=_now, onupdate=_now
@@ -116,9 +112,6 @@ class Paragraph(Base):
     text: Mapped[str] = mapped_column(Text)
     first_unit: Mapped[int] = mapped_column(Integer)
     last_unit: Mapped[int] = mapped_column(Integer)
-    clip_key: Mapped[str | None] = mapped_column(String(500))
-    start: Mapped[float | None] = mapped_column(Float)  # position in the English audio
-    end: Mapped[float | None] = mapped_column(Float)
 
 
 class GlossaryTerm(Base):

@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useOriginalPlayer, useSimplePlayer } from '@/hooks/use-original-player'
+import { useOriginalPlayer } from '@/hooks/use-original-player'
 import { activeIndex, fmt, isBusy } from '@/lib/format'
 
 const TABS = ['transcript', 'summary'] as const
@@ -25,14 +25,15 @@ type Tab = (typeof TABS)[number]
 type Mode = 'original' | 'english'
 
 export const Route = createFileRoute('/_authed/lectures/$lectureId')({
-  validateSearch: (s: Record<string, unknown>): { tab?: Tab; t?: number; et?: number; mode?: 'english' } => {
+  // t: cue the original recording at this second. mode=english shows the English version, p scrolls to
+  // one of its paragraphs ("03.02"); both come from search hits.
+  validateSearch: (s: Record<string, unknown>): { tab?: Tab; t?: number; p?: string; mode?: 'english' } => {
     const t = Number(s.t)
-    const et = Number(s.et)
     return {
       tab: TABS.find((x) => x === s.tab),
       t: s.t !== undefined && Number.isFinite(t) ? t : undefined,
-      et: s.et !== undefined && Number.isFinite(et) ? et : undefined,
-      mode: s.mode === 'english' ? 'english' : undefined,
+      p: typeof s.p === 'string' && /^\d+\.\d+$/.test(s.p) ? s.p : undefined,
+      mode: s.mode === 'english' || s.p ? 'english' : undefined,
     }
   },
   component: LectureView,
@@ -50,22 +51,16 @@ function LectureView() {
 
   const parts = lecture?.parts ?? []
   const original = useOriginalPlayer(parts)
-  const english = useSimplePlayer()
   const [mode, setMode] = useState<Mode>(search.mode ?? 'original')
 
-  // Arrived from a search hit: cue the original recording, or the English audio, at that moment
-  // (without playing). The seek waits for the audio's metadata if it has not loaded yet.
+  // Arrived from a search hit: cue the original recording at that moment (without playing). The seek
+  // waits for the audio's metadata if it has not loaded yet.
   const cued = useRef(false)
   useEffect(() => {
-    if (!lecture || cued.current) return
-    if (search.t !== undefined) {
-      cued.current = true
-      original.seek(search.t, false)
-    } else if (search.et !== undefined && lecture.english?.audio_url) {
-      cued.current = true
-      english.seek(search.et, false)
-    }
-  }, [lecture, search.t, search.et, original, english])
+    if (!lecture || cued.current || search.t === undefined) return
+    cued.current = true
+    original.seek(search.t, false)
+  }, [lecture, search.t, original])
 
   const remove = useMutation({
     ...deleteLectureMutation(),
@@ -79,17 +74,8 @@ function LectureView() {
   if (isPending) return <Skeleton className="h-64" />
   if (!lecture) return <p className="text-destructive">Lecture not found.</p>
 
-  const hasEnglishAudio = !!lecture.english?.audio_url
-
-  function switchMode(next: Mode) {
-    if (next === mode) return
-    original.pause()
-    english.pause()
-    setMode(next)
-  }
+  // The English version is text; "hear original" plays the recording at the moment it was based on.
   function hearOriginal(p: EnglishParagraph) {
-    english.pause()
-    setMode('original')
     original.seek(p.source_start)
   }
 
@@ -115,19 +101,8 @@ function LectureView() {
 
       {parts.length > 0 && (
         <div className="space-y-2 rounded-md border p-3">
-          {hasEnglishAudio && (
-            <div className="flex gap-1 text-sm">
-              <Button size="sm" variant={mode === 'original' ? 'default' : 'outline'} onClick={() => switchMode('original')}>
-                Original (German)
-              </Button>
-              <Button size="sm" variant={mode === 'english' ? 'default' : 'outline'} onClick={() => switchMode('english')}>
-                English version
-              </Button>
-            </div>
-          )}
-          <audio key={original.audioKey} {...original.props} controls className={mode === 'original' ? 'w-full' : 'hidden'} />
-          {hasEnglishAudio && <audio {...english.props} src={lecture.english!.audio_url!} preload="metadata" controls className={mode === 'english' ? 'w-full' : 'hidden'} />}
-          {parts.length > 1 && mode === 'original' && (
+          <audio key={original.audioKey} {...original.props} controls className="w-full" />
+          {parts.length > 1 && (
             <p className="text-xs text-muted-foreground">
               {parts.length} recordings play as one lecture. Now: part {original.partIndex + 1}.
             </p>
@@ -143,8 +118,18 @@ function LectureView() {
         <TabsContent value="transcript" className="space-y-4">
           <EnglishPanel lecture={lecture} />
           {lecture.transcript_segments.length > 0 && <DownloadTranscript lectureId={lecture.id} />}
+          {lecture.english && lecture.english.chunks.length > 0 && (
+            <div className="flex gap-1 text-sm">
+              <Button size="sm" variant={mode === 'original' ? 'default' : 'outline'} onClick={() => setMode('original')}>
+                German transcript
+              </Button>
+              <Button size="sm" variant={mode === 'english' ? 'default' : 'outline'} onClick={() => setMode('english')}>
+                English version
+              </Button>
+            </div>
+          )}
           {mode === 'english' && lecture.english ? (
-            <EnglishScript lecture={lecture} time={english.time} playing={english.playing} onSeek={(t) => english.seek(t)} onHearOriginal={hearOriginal} />
+            <EnglishScript lecture={lecture} time={original.time} playing={original.playing} focusId={search.p} onHearOriginal={hearOriginal} />
           ) : (
             <OriginalTranscript segments={lecture.transcript_segments} time={original.time} playing={original.playing} onSeek={(t) => original.seek(t)} status={lecture.status} />
           )}
@@ -223,8 +208,6 @@ function DownloadTranscript({ lectureId }: { lectureId: string }) {
 const STEPS: { status: string; label: string }[] = [
   { status: 'chunking', label: 'Planning topics and checklists' },
   { status: 'scripting', label: 'Writing and checking the script' },
-  { status: 'voicing', label: 'Recording the voice' },
-  { status: 'assembling', label: 'Assembling the audio' },
 ]
 
 function EnglishPanel({ lecture }: { lecture: TranscriptDetails }) {
@@ -250,8 +233,8 @@ function EnglishPanel({ lecture }: { lecture: TranscriptDetails }) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-4">
         <p className="max-w-xl text-sm">
-          <strong>English version.</strong> Re-performs the lecture as a fluent English professor would give it: every explanation, example, tip and exam hint kept,
-          the noise removed. Costs about $1–2 of text-to-speech and takes a few minutes.
+          <strong>English version.</strong> Re-tells the lecture in natural English, as a professor would: every explanation, example, tip and exam hint kept,
+          the filler removed, German key terms given once. A text, checked against the German. Uses a few AI calls and takes a minute or two.
         </p>
         <ConfirmButton label="Create English version" question="Start it now?" variant="default" disabled={create.isPending} onConfirm={() => create.mutate({ path: { lecture_id: lecture.id } })} />
       </div>
@@ -260,7 +243,7 @@ function EnglishPanel({ lecture }: { lecture: TranscriptDetails }) {
   if (lecture.english && lecture.status === 'english_ready')
     return (
       <p className="text-sm text-muted-foreground">
-        English version ready: {fmt(lecture.english.duration_seconds)} (original {fmt(lecture.duration_seconds)}), voice: {lecture.english.tts_provider}. Use the buttons above the player to switch.
+        English version ready: {lecture.english.chunks.reduce((n, c) => n + c.paragraphs.length, 0)} paragraphs in {lecture.english.chunks.filter((c) => c.status === 'done').length} topics. Switch between it and the German transcript below.
       </p>
     )
   return null
@@ -270,25 +253,34 @@ function EnglishScript({
   lecture,
   time,
   playing,
-  onSeek,
+  focusId,
   onHearOriginal,
 }: {
   lecture: TranscriptDetails
-  time: number
+  time: number // where the original recording is, so the matching paragraph lights up
   playing: boolean
-  onSeek: (t: number) => void
+  focusId?: string // arrived from a search hit: scroll to this paragraph
   onHearOriginal: (p: EnglishParagraph) => void
 }) {
   const queryClient = useQueryClient()
   const rerun = useMutation({ ...rerunChunkMutation(), onSuccess: () => void queryClient.invalidateQueries() })
   const flat = lecture.english!.chunks.flatMap((c) => c.paragraphs)
-  const timed = flat.filter((p) => p.start != null).map((p) => ({ ...p, start: p.start! }))
-  const active = activeIndex(timed, time)
-  const activeId = active >= 0 ? timed[active].id : null
+  const active = activeIndex(
+    flat.map((p) => ({ start: p.source_start })),
+    time,
+  )
+  const activeId = active >= 0 ? flat[active].id : null
   const refs = useRef<Record<string, HTMLDivElement | null>>({})
   useEffect(() => {
     if (playing && activeId) refs.current[activeId]?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }, [activeId, playing])
+  const focused = useRef(false)
+  useEffect(() => {
+    if (focusId && !focused.current && refs.current[focusId]) {
+      focused.current = true
+      refs.current[focusId]?.scrollIntoView({ block: 'center' })
+    }
+  }, [focusId, flat.length])
   const canRerun = lecture.status === 'english_ready' || lecture.status === 'failed'
 
   return (
@@ -312,17 +304,12 @@ function EnglishScript({
               ref={(el) => {
                 refs.current[p.id] = el
               }}
-              className={`rounded-md border p-3 ${p.id === activeId ? 'bg-accent' : ''}`}
+              className={`rounded-md border p-3 ${p.id === activeId ? 'bg-accent' : ''} ${p.id === focusId ? 'ring-2 ring-yellow-400' : ''}`}
             >
               <p className="leading-relaxed">{p.text}</p>
-              <div className="mt-2 flex gap-3 text-xs">
-                {p.start != null && (
-                  <button className="text-muted-foreground underline hover:text-foreground" onClick={() => onSeek(p.start!)}>
-                    ▶ Play {fmt(p.start)}
-                  </button>
-                )}
+              <div className="mt-2 text-xs">
                 <button className="text-muted-foreground underline hover:text-foreground" onClick={() => onHearOriginal(p)}>
-                  Hear original ({fmt(p.source_start)})
+                  ▶ Hear original ({fmt(p.source_start)})
                 </button>
               </div>
             </div>

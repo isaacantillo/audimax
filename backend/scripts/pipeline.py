@@ -13,11 +13,10 @@ Stages (each writes into data/results/<lecture>/ and is skipped if its output ex
     checklists  chunks/NN.checklist.json every definition / example / tip / exam hint per chunk
     glossary    glossary.json            the few German key terms worth saying in German once
     scripts     chunks/NN.script.json    English re-performed script, verified against the checklist
-    voice       clips/*.wav, tts.json    one TTS clip per paragraph; provider pinned per lecture
-    assemble    lecture_en.{mp3,json,md} stitched audio, paragraph timestamps, links to the German
+    (end)       lecture_en.{md,json}     the English script as notes, each paragraph linked to the German moment
 
-Rerunning only redoes what is missing. Delete chunks/03.script.json and rerun: chunk 3 is
-rewritten, and only its changed paragraphs are re-voiced (clips are keyed by text hash).
+Rerunning only redoes what is missing. Delete chunks/03.script.json and rerun: only chunk 3 is rewritten.
+There is no audio: the English version is a text.
 
 Usage (from backend/):
     uv run python scripts/pipeline.py data/SE1/SE1_L1_1.m4a data/SE1/SE1_L1_2.m4a
@@ -26,14 +25,10 @@ Usage (from backend/):
 """
 
 import argparse
-import hashlib
 import json
 import re
 import shutil
-import subprocess
 import sys
-import tempfile
-import wave
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
@@ -59,19 +54,10 @@ from app.services.english_lecture import (  # noqa: E402
 # Generation: Gemini primary, Claude fallback (decision #7), via OpenRouter's model fallback list.
 LLM_MODELS = ["google/gemini-3.8-flash", "anthropic/claude-sonnet-5.5"]
 
-# (name, model, voice). The first one that voices the *whole* lecture wins; never mixed.
-TTS_PROVIDERS = [
-    ("gemini", "google/gemini-3.1-flash-tts-preview", "Charon"),
-    ("qwen", "qwen/qwen-audio-3.0-tts-plus", "longanlufeng"),
-]
-
-STAGES = ["transcribe", "units", "chunks", "checklists", "glossary", "scripts", "voice", "assemble"]
+STAGES = ["transcribe", "units", "chunks", "checklists", "glossary", "scripts"]
 MAX_WRITE_ATTEMPTS = 3
 WORKERS = 4
 DEEPL_BATCH = 150  # units per DeepL request, well under its 128 KiB request limit
-SAMPLE_RATE = 24_000
-PARAGRAPH_PAUSE = 0.6
-CHUNK_PAUSE = 1.4
 
 
 # Prompts and structured outputs live in app/services/english_lecture.py, shared with the worker.
@@ -141,12 +127,10 @@ class Pipeline:
         self.parts = sorted(parts, key=part_number)
         self.out = results / self.name
         self.chunk_dir = self.out / "chunks"
-        self.clip_dir = self.out / "clips"
         self.out.mkdir(parents=True, exist_ok=True)
 
     def redo(self, stage: str) -> None:
-        """Delete the outputs of `stage` and every later stage. Clips are content-addressed,
-        so they survive everything except an explicit `--redo voice`."""
+        """Delete the outputs of `stage` and every later stage."""
         for s in STAGES[STAGES.index(stage):]:
             match s:
                 case "transcribe":
@@ -164,10 +148,6 @@ class Pipeline:
                 case "scripts":
                     for p in self.chunk_dir.glob("*.script.json"):
                         p.unlink()
-                case "voice" if stage == "voice":
-                    shutil.rmtree(self.clip_dir, ignore_errors=True)
-                    (self.out / "tts.json").unlink(missing_ok=True)
-                case "assemble":
                     for p in self.out.glob("lecture_en.*"):
                         p.unlink()
 
@@ -178,8 +158,7 @@ class Pipeline:
         checklists = self.checklists(chunks, units)
         glossary = self.glossary(checklists)
         scripts = self.scripts(chunks, checklists, glossary, units)
-        tts, clips = self.voice(scripts)
-        self.assemble(scripts, clips, tts, units, transcript)
+        self.export(scripts, units, transcript)
 
     def transcribe(self) -> dict:
         """Transcribe each part (cached per file) and shift its timestamps onto one timeline."""
@@ -344,51 +323,12 @@ class Pipeline:
             "verdict": verdict.model_dump(),
         }
 
-    def voice(self, scripts: list[dict]) -> tuple[dict, list[Path]]:
-        state_path = self.out / "tts.json"
-        texts = [p["text"] for s in scripts for p in s["paragraphs"]]
-        pinned = read_json(state_path)["name"] if state_path.exists() else TTS_PROVIDERS[0][0]
-        candidates = [p for p in TTS_PROVIDERS if p[0] == pinned] + [p for p in TTS_PROVIDERS if p[0] != pinned]
-
-        for name, model, voice in candidates:
-            clips = [self.clip_dir / f"{hashlib.sha1(f'{model}|{voice}|{t}'.encode()).hexdigest()[:16]}.wav" for t in texts]
-            todo = [(t, c) for t, c in zip(texts, clips) if not c.exists()]
-            print(f"voice: {name}, {len(todo)}/{len(clips)} clips to synthesize")
-            try:
-                parallel(lambda job, m=model, v=voice: self.synthesize(m, v, *job), todo)
-            except Exception as e:
-                # Never mix voices: the next provider re-voices the whole lecture.
-                print(f"voice: {name} failed ({e}); switching the whole lecture")
-                continue
-            tts = {"name": name, "model": model, "voice": voice}
-            write_json(state_path, tts)
-            return tts, clips
-        raise RuntimeError("all TTS providers failed")
-
-    def synthesize(self, model: str, voice: str, text: str, clip: Path) -> None:
-        clip.parent.mkdir(parents=True, exist_ok=True)
-        # Gemini TTS only supports raw PCM; the rate comes back as "audio/pcm;rate=24000;channels=1".
-        response = openai_client.audio.speech.with_raw_response.create(
-            model=model, voice=voice, input=text, response_format="pcm"
-        )
-        params = dict(
-            part.strip().split("=", 1)
-            for part in response.headers["content-type"].split(";")[1:]
-        )
-        partial = clip.with_suffix(".part")
-        with wave.open(str(partial), "wb") as out:
-            out.setnchannels(int(params.get("channels", 1)))
-            out.setsampwidth(2)
-            out.setframerate(int(params.get("rate", SAMPLE_RATE)))
-            out.writeframes(response.content)
-        partial.rename(clip)
-
-    def assemble(self, scripts, clips: list[Path], tts: dict, units: list[Segment], transcript: dict) -> None:
+    def export(self, scripts, units: list[Segment], transcript: dict) -> None:
+        """Write the English script as notes (lecture_en.md) and data (lecture_en.json). Each paragraph
+        carries the German moment it is based on, as the file and the time inside it."""
         parts = transcript["parts"]
-        source_duration = transcript["duration"]
 
         def locate(t: float) -> tuple[int, float]:
-            """Lecture time -> (part index, seconds into that part's file) for "hear original"."""
             index = max(i for i, part in enumerate(parts) if part["offset"] <= t)
             return index, round(t - parts[index]["offset"], 2)
 
@@ -396,73 +336,29 @@ class Pipeline:
             index, local = locate(t)
             return f"part {index + 1} {mmss(local)}" if len(parts) > 1 else mmss(local)
 
-        wav_path = self.out / "lecture_en.wav"
-        clip_iter = iter(clips)
-        t = 0.0
         chunks_out = []
-        with tempfile.TemporaryDirectory() as tmp, wave.open(str(wav_path), "wb") as out:
-            out.setnchannels(1)
-            out.setsampwidth(2)
-            out.setframerate(SAMPLE_RATE)
-
-            def silence(seconds: float) -> float:
-                out.writeframes(b"\x00\x00" * int(seconds * SAMPLE_RATE))
-                return int(seconds * SAMPLE_RATE) / SAMPLE_RATE
-
-            for script in (s for s in scripts if s["paragraphs"]):
-                chunk = script["chunk"]
-                paragraphs_out = []
-                for p in script["paragraphs"]:
-                    # Per-clip loudness pass so every paragraph sits at the same level.
-                    clip_wav = Path(tmp) / "clip.wav"
-                    subprocess.run(
-                        ["ffmpeg", "-v", "error", "-y", "-i", str(next(clip_iter)),
-                         "-af", "loudnorm=I=-18:TP=-2", "-ac", "1", "-ar", str(SAMPLE_RATE),
-                         "-c:a", "pcm_s16le", str(clip_wav)],
-                        check=True,
-                    )
-                    with wave.open(str(clip_wav), "rb") as clip:
-                        frames = clip.readframes(clip.getnframes())
-                        length = clip.getnframes() / SAMPLE_RATE
-                    out.writeframes(frames)
-                    paragraphs_out.append({
+        for script in (s for s in scripts if s["paragraphs"]):
+            chunk = script["chunk"]
+            chunks_out.append({
+                "id": chunk["id"],
+                "title": chunk["title"],
+                "source_start": chunk["start"],
+                "source_end": chunk["end"],
+                "verified": script["verified"],
+                "paragraphs": [
+                    {
                         "id": p["id"],
                         "text": p["text"],
-                        "start": round(t, 2),
-                        "end": round(t + length, 2),
                         "source_start": units[p["first_unit"]].start,
                         "source_end": units[p["last_unit"]].end,
-                        # Where to seek for "hear original": the part's file and time within it.
                         "source_file": parts[locate(units[p["first_unit"]].start)[0]]["file"],
                         "source_file_start": locate(units[p["first_unit"]].start)[1],
-                    })
-                    t += length + silence(PARAGRAPH_PAUSE)
-                t += silence(CHUNK_PAUSE - PARAGRAPH_PAUSE)
-                chunks_out.append({
-                    "id": chunk["id"],
-                    "title": chunk["title"],
-                    "source_start": chunk["start"],
-                    "source_end": chunk["end"],
-                    "verified": script["verified"],
-                    "paragraphs": paragraphs_out,
-                })
+                    }
+                    for p in script["paragraphs"]
+                ],
+            })
 
-        subprocess.run(
-            ["ffmpeg", "-v", "error", "-y", "-i", str(wav_path),
-             "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-ar", str(SAMPLE_RATE),
-             "-ac", "1", "-b:a", "64k", str(self.out / "lecture_en.mp3")],
-            check=True,
-        )
-        wav_path.unlink()
-
-        write_json(self.out / "lecture_en.json", {
-            "lecture": self.name,
-            "source_duration": source_duration,
-            "parts": parts,
-            "duration": round(t, 2),
-            "tts": tts,
-            "chunks": chunks_out,
-        })
+        write_json(self.out / "lecture_en.json", {"lecture": self.name, "source_duration": transcript["duration"], "parts": parts, "chunks": chunks_out})
 
         lines = [f"# {self.name}", ""]
         for c in chunks_out:
@@ -473,11 +369,8 @@ class Pipeline:
         (self.out / "lecture_en.md").write_text("\n".join(lines), encoding="utf-8")
 
         unverified = [c["id"] for c in chunks_out if not c["verified"]]
-        print(
-            f"assemble: {mmss(t)} English vs {mmss(source_duration)} original "
-            f"({t / source_duration:.0%}), voice {tts['name']}"
-            + (f", unverified chunks: {unverified}" if unverified else "")
-        )
+        words = sum(len(p["text"].split()) for c in chunks_out for p in c["paragraphs"])
+        print(f"export: {words} words in {len(chunks_out)} topics" + (f", unverified chunks: {unverified}" if unverified else ""))
 
 
 if __name__ == "__main__":

@@ -63,7 +63,7 @@ function CoursePage() {
                 <CardTitle className="flex flex-wrap items-center gap-2">
                   {l.title}
                   <StatusBadge status={l.status} />
-                  {l.has_english && <Badge variant="outline">English audio</Badge>}
+                  {l.has_english && <Badge variant="outline">English version</Badge>}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1 text-sm text-muted-foreground">
@@ -93,7 +93,7 @@ function CoursePage() {
         </p>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox checked={english} onCheckedChange={(v) => setEnglish(v === true)} />
-          Also create the English version (about $1–2 of text-to-speech per lecture)
+          Also create the English version (a text, uses a few AI calls)
         </label>
         {upload.isError && <p className="text-sm text-destructive">{upload.error.message}</p>}
         <Button type="submit" disabled={files.length === 0 || upload.isPending}>

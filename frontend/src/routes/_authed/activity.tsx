@@ -13,9 +13,7 @@ const TASK_LABEL: Record<string, string> = {
   translate_lecture: 'Translate',
   summarize_lecture: 'Summarise',
   english_plan: 'English: plan topics',
-  english_write: 'English: write script',
-  english_voice: 'English: record voice',
-  english_assemble: 'English: assemble audio',
+  english_write: 'English: write and check',
 }
 
 function Activity() {

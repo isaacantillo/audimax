@@ -118,20 +118,10 @@ export type EnglishChunk = {
 
 /**
  * EnglishLecture
+ *
+ * The re-performed lecture as text, paragraph by paragraph, each linked to its place in the original.
  */
 export type EnglishLecture = {
-    /**
-     * Audio Url
-     */
-    audio_url: string | null;
-    /**
-     * Duration Seconds
-     */
-    duration_seconds: number;
-    /**
-     * Tts Provider
-     */
-    tts_provider: string | null;
     /**
      * Chunks
      */
@@ -150,14 +140,6 @@ export type EnglishParagraph = {
      * Text
      */
     text: string;
-    /**
-     * Start
-     */
-    start: number | null;
-    /**
-     * End
-     */
-    end: number | null;
     /**
      * Source Start
      */
@@ -270,10 +252,9 @@ export type LecturePart = {
  * LectureStatus
  *
  * Original lecture: uploaded -> transcribing -> transcribed -> translating -> summarizing -> ready.
- * English lecture (optional, on top of ready): chunking -> scripting -> voicing -> assembling
- * -> english_ready. `failed` can follow any of them.
+ * English version (optional, on top of ready): chunking -> scripting -> english_ready. `failed` can follow any of them.
  */
-export type LectureStatus = 'uploaded' | 'transcribing' | 'transcribed' | 'translating' | 'summarizing' | 'ready' | 'chunking' | 'scripting' | 'voicing' | 'assembling' | 'english_ready' | 'failed';
+export type LectureStatus = 'uploaded' | 'transcribing' | 'transcribed' | 'translating' | 'summarizing' | 'ready' | 'chunking' | 'scripting' | 'english_ready' | 'failed';
 
 /**
  * LectureSummary
@@ -344,6 +325,10 @@ export type SearchHit = {
      * Start
      */
     start: number;
+    /**
+     * Paragraph Id
+     */
+    paragraph_id: string | null;
     /**
      * Text
      */

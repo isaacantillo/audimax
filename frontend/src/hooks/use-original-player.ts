@@ -61,37 +61,3 @@ export function useOriginalPlayer(parts: LecturePart[]) {
   // `audioKey` re-mounts the element when the next file starts; pass it as key={...} (React can't take a spread key).
   return { props, audioKey: part?.audio_url, time, playing, seek, pause, partIndex: index }
 }
-
-/** Plain single-file player (the English audio). */
-export function useSimplePlayer() {
-  const ref = useRef<HTMLAudioElement>(null)
-  const [time, setTime] = useState(0)
-  const [playing, setPlaying] = useState(false)
-  const pending = useRef<{ t: number; play: boolean } | null>(null)
-
-  const seek = useCallback((t: number, play = true) => {
-    const audio = ref.current
-    if (!audio) return
-    if (audio.readyState > 0) {
-      audio.currentTime = t
-      if (play) void audio.play()
-    } else {
-      pending.current = { t, play } // applied once the file's metadata has loaded
-    }
-  }, [])
-
-  const props = {
-    ref,
-    onLoadedMetadata: (e: React.SyntheticEvent<HTMLAudioElement>) => {
-      const next = pending.current
-      if (!next) return
-      pending.current = null
-      e.currentTarget.currentTime = next.t
-      if (next.play) void e.currentTarget.play()
-    },
-    onTimeUpdate: (e: React.SyntheticEvent<HTMLAudioElement>) => setTime(e.currentTarget.currentTime),
-    onPlay: () => setPlaying(true),
-    onPause: () => setPlaying(false),
-  }
-  return { props, time, playing, seek, pause: () => ref.current?.pause() }
-}
