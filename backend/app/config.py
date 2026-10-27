@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     live_transcribe_model: str = "gpt-live-transcribe"
     live_language: str = "de"
 
+    # Free DB-IP "IP to City Lite" database: turns a session's IP into "City, Country" on this server,
+    # without sending the IP anywhere. Missing file => no location. Refresh: python -m app.services.geoip
+    geoip_path: str = "data/geoip/dbip-city-lite.mmdb"
+
     # Cloudflare R2 (S3-compatible). Empty => storage falls back to backend/data/.
     r2_account_id: str = ""
     r2_access_key_id: str = ""

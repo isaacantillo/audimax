@@ -29,4 +29,9 @@ class AuthSession(Base):
     kind: Mapped[str] = mapped_column(String(10))  # "browser" | "api"
     name: Mapped[str | None]
     expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))  # None = no expiry
+    # Where the session is used from, refreshed as it is used (see app.auth.touch).
+    ip: Mapped[str | None] = mapped_column(String(45))
+    user_agent: Mapped[str | None] = mapped_column(String(500))
+    location: Mapped[str | None] = mapped_column(String(200))  # "City, Region, Country" from the IP
+    last_seen_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

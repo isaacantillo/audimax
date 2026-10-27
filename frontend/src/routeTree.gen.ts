@@ -15,6 +15,7 @@ import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as AuthedActivityRouteImport } from './routes/_authed/activity'
 import { Route as AuthedLiveRouteImport } from './routes/_authed/live'
 import { Route as AuthedSearchRouteImport } from './routes/_authed/search'
+import { Route as AuthedSessionsRouteImport } from './routes/_authed/sessions'
 import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
 import { Route as AuthedCoursesCourseIdRouteImport } from './routes/_authed/courses.$courseId'
 import { Route as AuthedLecturesLectureIdRouteImport } from './routes/_authed/lectures.$lectureId'
@@ -48,6 +49,11 @@ const AuthedSearchRoute = AuthedSearchRouteImport.update({
   path: '/search',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedSessionsRoute = AuthedSessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/activity': typeof AuthedActivityRoute
   '/live': typeof AuthedLiveRoute
   '/search': typeof AuthedSearchRoute
+  '/sessions': typeof AuthedSessionsRoute
   '/settings': typeof AuthedSettingsRoute
   '/courses/$courseId': typeof AuthedCoursesCourseIdRoute
   '/lectures/$lectureId': typeof AuthedLecturesLectureIdRoute
@@ -79,6 +86,7 @@ export interface FileRoutesByTo {
   '/activity': typeof AuthedActivityRoute
   '/live': typeof AuthedLiveRoute
   '/search': typeof AuthedSearchRoute
+  '/sessions': typeof AuthedSessionsRoute
   '/settings': typeof AuthedSettingsRoute
   '/': typeof AuthedIndexRoute
   '/courses/$courseId': typeof AuthedCoursesCourseIdRoute
@@ -91,6 +99,7 @@ export interface FileRoutesById {
   '/_authed/activity': typeof AuthedActivityRoute
   '/_authed/live': typeof AuthedLiveRoute
   '/_authed/search': typeof AuthedSearchRoute
+  '/_authed/sessions': typeof AuthedSessionsRoute
   '/_authed/settings': typeof AuthedSettingsRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/courses/$courseId': typeof AuthedCoursesCourseIdRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/live'
     | '/search'
+    | '/sessions'
     | '/settings'
     | '/courses/$courseId'
     | '/lectures/$lectureId'
@@ -113,6 +123,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/live'
     | '/search'
+    | '/sessions'
     | '/settings'
     | '/'
     | '/courses/$courseId'
@@ -124,6 +135,7 @@ export interface FileRouteTypes {
     | '/_authed/activity'
     | '/_authed/live'
     | '/_authed/search'
+    | '/_authed/sessions'
     | '/_authed/settings'
     | '/_authed/'
     | '/_authed/courses/$courseId'
@@ -179,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedSearchRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/sessions': {
+      id: '/_authed/sessions'
+      path: '/sessions'
+      fullPath: '/sessions'
+      preLoaderRoute: typeof AuthedSessionsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/settings': {
       id: '/_authed/settings'
       path: '/settings'
@@ -207,6 +226,7 @@ interface AuthedRouteChildren {
   AuthedActivityRoute: typeof AuthedActivityRoute
   AuthedLiveRoute: typeof AuthedLiveRoute
   AuthedSearchRoute: typeof AuthedSearchRoute
+  AuthedSessionsRoute: typeof AuthedSessionsRoute
   AuthedSettingsRoute: typeof AuthedSettingsRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedCoursesCourseIdRoute: typeof AuthedCoursesCourseIdRoute
@@ -217,6 +237,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedActivityRoute: AuthedActivityRoute,
   AuthedLiveRoute: AuthedLiveRoute,
   AuthedSearchRoute: AuthedSearchRoute,
+  AuthedSessionsRoute: AuthedSessionsRoute,
   AuthedSettingsRoute: AuthedSettingsRoute,
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedCoursesCourseIdRoute: AuthedCoursesCourseIdRoute,

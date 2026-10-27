@@ -12,6 +12,8 @@ x-backend: &backend
   volumes:
     # Only used while R2 is not configured; with R2 credentials set nothing is written here.
     - storage:/code/data/storage
+    # The DB-IP location database (python -m app.services.geoip downloads it; cron refreshes it monthly).
+    - geoip:/code/data/geoip
   restart: unless-stopped
 
 services:
@@ -71,3 +73,4 @@ services:
 volumes:
   pgdata:
   storage:
+  geoip:

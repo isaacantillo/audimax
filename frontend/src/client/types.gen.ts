@@ -372,6 +372,54 @@ export type SearchResponse = {
 };
 
 /**
+ * SessionOut
+ *
+ * A signed-in browser or an API token, and where it is used from.
+ */
+export type SessionOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Username
+     */
+    username: string;
+    /**
+     * Kind
+     */
+    kind: string;
+    /**
+     * Name
+     */
+    name: string | null;
+    /**
+     * Device
+     */
+    device: string;
+    /**
+     * Ip
+     */
+    ip: string | null;
+    /**
+     * Location
+     */
+    location: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Last Seen At
+     */
+    last_seen_at: string | null;
+    /**
+     * Current
+     */
+    current: boolean;
+};
+
+/**
  * TranscriptDetails
  */
 export type TranscriptDetails = {
@@ -450,6 +498,10 @@ export type UserOut = {
      * Username
      */
     username: string;
+    /**
+     * Is Admin
+     */
+    is_admin: boolean;
 };
 
 /**
@@ -556,6 +608,54 @@ export type GetMeResponses = {
 };
 
 export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
+
+export type ListSessionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/auth/sessions';
+};
+
+export type ListSessionsResponses = {
+    /**
+     * Response List Sessions
+     *
+     * Successful Response
+     */
+    200: Array<SessionOut>;
+};
+
+export type ListSessionsResponse = ListSessionsResponses[keyof ListSessionsResponses];
+
+export type RevokeSessionData = {
+    body?: never;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/auth/sessions/{session_id}';
+};
+
+export type RevokeSessionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RevokeSessionError = RevokeSessionErrors[keyof RevokeSessionErrors];
+
+export type RevokeSessionResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RevokeSessionResponse = RevokeSessionResponses[keyof RevokeSessionResponses];
 
 export type CreateApiTokenData = {
     body: ApiTokenRequest;

@@ -78,6 +78,7 @@ Everything runs on one VPS: Postgres, the API, the worker, nginx and Caddy, whic
    The same command deploys an update after you change the code.
 4. Backups: cron runs `scripts/backup.sh` nightly (`0 3 * * *`). It dumps the database to `backups/` (keeps 14) and copies each dump to R2 under `backups/`. Recordings are in R2 already; the database is the part a dead disk would take.
 5. Users: `./scripts/users.sh add <name>` creates one with a random password, `./scripts/users.sh reset <name>` gives a new one (and logs them out of every browser), `./scripts/users.sh list` lists them. The password is printed once. Each user sees only the courses they added (and everything in them); the admin (the user created from `ADMIN_USERNAME` on first start) sees every course, and each course card says who added it. To move a course to another user: `UPDATE courses SET user_id = (SELECT id FROM users WHERE username = '<name>') WHERE name = '<course>'`.
+6. Sessions: the **Sessions** page lists where each user is signed in (device, approximate location from the IP, last active) and logs any of them out; users see their own, the admin everyone's. Locations come from the free DB-IP Lite database on the server (`python -m app.services.geoip` in the app container downloads it; cron refreshes it on the 3rd of each month), so IPs are never sent to a third party.
 
 ## Layout
 

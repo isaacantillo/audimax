@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateApiTokenData, CreateApiTokenErrors, CreateApiTokenResponses, CreateCourseData, CreateCourseErrors, CreateCourseResponses, CreateEnglishData, CreateEnglishErrors, CreateEnglishResponses, CreateLectureData, CreateLectureErrors, CreateLectureResponses, DeleteCourseData, DeleteCourseErrors, DeleteCourseResponses, DeleteLectureData, DeleteLectureErrors, DeleteLectureResponses, DiscardLiveRecordingData, DiscardLiveRecordingErrors, DiscardLiveRecordingResponses, DownloadTranscriptData, DownloadTranscriptErrors, DownloadTranscriptResponses, GetCourseData, GetCourseErrors, GetCourseResponses, GetLectureData, GetLectureErrors, GetLectureResponses, GetMeData, GetMeResponses, GetSummaryData, GetSummaryErrors, GetSummaryResponses, HealthData, HealthResponses, ListCoursesData, ListCoursesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListLecturesData, ListLecturesErrors, ListLecturesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, RerunChunkData, RerunChunkErrors, RerunChunkResponses, RetryJobData, RetryJobErrors, RetryJobResponses, SaveLiveRecordingData, SaveLiveRecordingErrors, SaveLiveRecordingResponses, SearchData, SearchErrors, SearchResponses } from './types.gen';
+import type { CreateApiTokenData, CreateApiTokenErrors, CreateApiTokenResponses, CreateCourseData, CreateCourseErrors, CreateCourseResponses, CreateEnglishData, CreateEnglishErrors, CreateEnglishResponses, CreateLectureData, CreateLectureErrors, CreateLectureResponses, DeleteCourseData, DeleteCourseErrors, DeleteCourseResponses, DeleteLectureData, DeleteLectureErrors, DeleteLectureResponses, DiscardLiveRecordingData, DiscardLiveRecordingErrors, DiscardLiveRecordingResponses, DownloadTranscriptData, DownloadTranscriptErrors, DownloadTranscriptResponses, GetCourseData, GetCourseErrors, GetCourseResponses, GetLectureData, GetLectureErrors, GetLectureResponses, GetMeData, GetMeResponses, GetSummaryData, GetSummaryErrors, GetSummaryResponses, HealthData, HealthResponses, ListCoursesData, ListCoursesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListLecturesData, ListLecturesErrors, ListLecturesResponses, ListSessionsData, ListSessionsResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, RerunChunkData, RerunChunkErrors, RerunChunkResponses, RetryJobData, RetryJobErrors, RetryJobResponses, RevokeSessionData, RevokeSessionErrors, RevokeSessionResponses, SaveLiveRecordingData, SaveLiveRecordingErrors, SaveLiveRecordingResponses, SearchData, SearchErrors, SearchResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -44,6 +44,20 @@ export const logout = <ThrowOnError extends boolean = false>(options?: Options<L
  * Get Me
  */
 export const getMe = <ThrowOnError extends boolean = false>(options?: Options<GetMeData, ThrowOnError>): RequestResult<GetMeResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetMeResponses, unknown, ThrowOnError>({ url: '/api/auth/me', ...options });
+
+/**
+ * List Sessions
+ *
+ * Your signed-in devices and API tokens; the admin sees everyone's. Expired sessions are left out.
+ */
+export const listSessions = <ThrowOnError extends boolean = false>(options?: Options<ListSessionsData, ThrowOnError>): RequestResult<ListSessionsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSessionsResponses, unknown, ThrowOnError>({ url: '/api/auth/sessions', ...options });
+
+/**
+ * Revoke Session
+ *
+ * Log a device out (or revoke an API token). Your own, or anyone's for the admin.
+ */
+export const revokeSession = <ThrowOnError extends boolean = false>(options: Options<RevokeSessionData, ThrowOnError>): RequestResult<RevokeSessionResponses, RevokeSessionErrors, ThrowOnError> => (options.client ?? client).delete<RevokeSessionResponses, RevokeSessionErrors, ThrowOnError>({ url: '/api/auth/sessions/{session_id}', ...options });
 
 /**
  * Create Api Token
