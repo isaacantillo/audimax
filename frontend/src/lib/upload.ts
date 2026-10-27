@@ -9,11 +9,10 @@ async function post<T>(path: string, form: FormData): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export function uploadLecture(args: { courseId: string; title: string; files: File[]; english: boolean }) {
+export function uploadLecture(args: { courseId: string; title: string; files: File[] }) {
   const form = new FormData()
   form.set('course_id', args.courseId)
   form.set('title', args.title)
-  form.set('english', String(args.english))
   args.files.forEach((f) => form.append('files', f))
   return post<{ id: string; title: string }>('/api/lectures', form)
 }

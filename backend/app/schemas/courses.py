@@ -9,6 +9,7 @@ class Course(ApiModel):
     name: str
 
 class CourseSummary(Course):
+    added_by: str  # username of the course's owner
     lecture_count: int
     last_activity_at: datetime.datetime
     has_active_jobs: bool

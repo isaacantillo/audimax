@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import current_user
 from app.db import get_session
-from app.models import Lecture, Paragraph, Unit
+from app.models import Course, Lecture, Paragraph, Unit, User
 from app.schemas.search import SearchHit, SearchResponse
 
 router = APIRouter(tags=["search"])
@@ -21,6 +22,7 @@ async def search(
     q: str = Query(min_length=2, max_length=200),
     course_id: uuid.UUID | None = None,
     limit: int = Query(40, ge=1, le=200),
+    user: User = Depends(current_user),
     db: AsyncSession = Depends(get_session),
 ):
     """Find a word or phrase in the German transcripts, their translations and the English scripts.
@@ -44,6 +46,10 @@ async def search(
         .order_by(*order, Paragraph.chunk_n, Paragraph.n)
         .limit(limit + 1)
     )
+    if not user.is_admin:
+        mine = select(Course.id).where(Course.user_id == user.id)
+        units = units.where(Lecture.course_id.in_(mine))
+        paragraphs = paragraphs.where(Lecture.course_id.in_(mine))
     if course_id:
         units = units.where(Lecture.course_id == course_id)
         paragraphs = paragraphs.where(Lecture.course_id == course_id)

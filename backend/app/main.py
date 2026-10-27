@@ -27,7 +27,7 @@ async def lifespan(_: FastAPI):
     async with SessionLocal() as db:
         if await db.scalar(select(func.count()).select_from(User)) == 0:
             if settings.admin_password:
-                db.add(User(username=settings.admin_username, password_hash=hash_password(settings.admin_password)))
+                db.add(User(username=settings.admin_username, password_hash=hash_password(settings.admin_password), is_admin=True))
                 await db.commit()
                 log.warning("created user %r", settings.admin_username)
             else:

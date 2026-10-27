@@ -41,10 +41,6 @@ export type BodyCreateLecture = {
      */
     title?: string;
     /**
-     * English
-     */
-    english?: boolean;
-    /**
      * Files
      */
     files: Array<Blob | File>;
@@ -72,6 +68,10 @@ export type CourseSummary = {
      * Name
      */
     name: string;
+    /**
+     * Added By
+     */
+    added_by: string;
     /**
      * Lecture Count
      */
@@ -313,10 +313,6 @@ export type SaveLiveRecording = {
      * Title
      */
     title?: string;
-    /**
-     * English
-     */
-    english?: boolean;
 };
 
 /**

@@ -5,9 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import storage
+from app.auth import current_user
 from app.db import get_session
-from app.models import Chunk, Course, Lecture
-from app.routers.common import get_or_404
+from app.models import Chunk, Course, Lecture, User
+from app.routers.common import owned_course
 from app.schemas.courses import CourseCreate, CourseSummary
 from app.schemas.enums import IDLE_STATUSES, LectureStatus
 from app.schemas.lectures import LectureSummary
@@ -21,6 +22,7 @@ async def _summary(db: AsyncSession, course: Course) -> CourseSummary:
     return CourseSummary(
         id=course.id,
         name=course.name,
+        added_by=await db.scalar(select(User.username).where(User.id == course.user_id)) or "",
         lecture_count=len(lectures),
         last_activity_at=max([course.created_at, *(l.updated_at for l in lectures)]),
         has_active_jobs=any(l.status not in _IDLE for l in lectures),
@@ -28,27 +30,30 @@ async def _summary(db: AsyncSession, course: Course) -> CourseSummary:
 
 
 @router.get("/courses", response_model=list[CourseSummary])
-async def list_courses(db: AsyncSession = Depends(get_session)):
-    courses = (await db.execute(select(Course).order_by(Course.created_at))).scalars()
+async def list_courses(user: User = Depends(current_user), db: AsyncSession = Depends(get_session)):
+    query = select(Course).order_by(Course.created_at)
+    if not user.is_admin:
+        query = query.where(Course.user_id == user.id)
+    courses = (await db.execute(query)).scalars()
     return [await _summary(db, c) for c in courses]
 
 
 @router.post("/courses", response_model=CourseSummary, status_code=201)
-async def create_course(body: CourseCreate, db: AsyncSession = Depends(get_session)):
-    course = Course(name=body.name.strip() or "Untitled course")
+async def create_course(body: CourseCreate, user: User = Depends(current_user), db: AsyncSession = Depends(get_session)):
+    course = Course(user_id=user.id, name=body.name.strip() or "Untitled course")
     db.add(course)
     await db.commit()
     return await _summary(db, course)
 
 
 @router.get("/courses/{course_id}", response_model=CourseSummary)
-async def get_course(course_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
-    return await _summary(db, await get_or_404(db, Course, course_id, "Course"))
+async def get_course(course_id: uuid.UUID, user: User = Depends(current_user), db: AsyncSession = Depends(get_session)):
+    return await _summary(db, await owned_course(db, course_id, user))
 
 
 @router.delete("/courses/{course_id}", status_code=204)
-async def delete_course(course_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
-    course = await get_or_404(db, Course, course_id, "Course")
+async def delete_course(course_id: uuid.UUID, user: User = Depends(current_user), db: AsyncSession = Depends(get_session)):
+    course = await owned_course(db, course_id, user)
     ids = (await db.execute(select(Lecture.id).where(Lecture.course_id == course_id))).scalars().all()
     await db.delete(course)
     await db.commit()
@@ -57,8 +62,8 @@ async def delete_course(course_id: uuid.UUID, db: AsyncSession = Depends(get_ses
 
 
 @router.get("/courses/{course_id}/lectures", response_model=list[LectureSummary])
-async def list_lectures(course_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
-    await get_or_404(db, Course, course_id, "Course")
+async def list_lectures(course_id: uuid.UUID, user: User = Depends(current_user), db: AsyncSession = Depends(get_session)):
+    await owned_course(db, course_id, user)
     lectures = (await db.execute(
         select(Lecture).where(Lecture.course_id == course_id).order_by(Lecture.date, Lecture.created_at)
     )).scalars()

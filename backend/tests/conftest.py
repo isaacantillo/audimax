@@ -57,10 +57,20 @@ def make_audio(path: Path, seconds: int) -> Path:
 
 
 @pytest.fixture
-async def lecture_id(tmp_path):
+async def owner_id() -> uuid.UUID:
+    """The user `tester` (password "correct horse"), who owns the fixture course and logs in as `authed`."""
+    async with SessionLocal() as db:
+        user = User(username="tester", password_hash=hash_password("correct horse"))
+        db.add(user)
+        await db.commit()
+        return user.id
+
+
+@pytest.fixture
+async def lecture_id(tmp_path, owner_id):
     """A course with one lecture recorded in two files (40 s + 30 s), uploaded but not processed."""
     async with SessionLocal() as db:
-        course = Course(name="Software Engineering 1")
+        course = Course(user_id=owner_id, name="Software Engineering 1")
         db.add(course)
         await db.flush()
         lecture = Lecture(course_id=course.id, title="SE1 L1")
@@ -76,12 +86,9 @@ async def lecture_id(tmp_path):
 
 
 @pytest.fixture
-async def client():
+async def client(owner_id):
     from app.main import app
 
-    async with SessionLocal() as db:
-        db.add(User(username="tester", password_hash=hash_password("correct horse")))
-        await db.commit()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
@@ -89,6 +96,17 @@ async def client():
 @pytest.fixture
 async def authed(client):
     r = await client.post("/api/auth/login", json={"username": "tester", "password": "correct horse"})
+    assert r.status_code == 200
+    return client
+
+
+async def login_as(client: AsyncClient, username: str, *, admin: bool = False) -> AsyncClient:
+    """Create another user and switch `client`'s session cookie to them."""
+    async with SessionLocal() as db:
+        db.add(User(username=username, password_hash=hash_password("pw " + username), is_admin=admin))
+        await db.commit()
+    client.cookies.clear()
+    r = await client.post("/api/auth/login", json={"username": username, "password": "pw " + username})
     assert r.status_code == 200
     return client
 

@@ -17,23 +17,25 @@ async def defer(task, lecture_id: str, **kwargs) -> None:
     await task.configure(lock=lecture_id).defer_async(lecture_id=lecture_id, **kwargs)
 
 
+# The English version is only made on request (POST /lectures/{id}/english), never as part of an upload.
+# `**_` accepts the `english=` argument that jobs queued before that change still carry, so they can retry.
+
+
 @task_queue.task(name="transcribe_lecture", queue="transcribe", retry=RETRY)
-async def transcribe_lecture(lecture_id: str, english: bool = False) -> None:
+async def transcribe_lecture(lecture_id: str, **_: object) -> None:
     await p.run_transcribe(uuid.UUID(lecture_id))
-    await defer(translate_lecture, lecture_id, english=english)
+    await defer(translate_lecture, lecture_id)
 
 
 @task_queue.task(name="translate_lecture", queue="llm", retry=RETRY)
-async def translate_lecture(lecture_id: str, english: bool = False) -> None:
+async def translate_lecture(lecture_id: str, **_: object) -> None:
     await p.run_translate(uuid.UUID(lecture_id))
-    await defer(summarize_lecture, lecture_id, english=english)
+    await defer(summarize_lecture, lecture_id)
 
 
 @task_queue.task(name="summarize_lecture", queue="llm", retry=RETRY)
-async def summarize_lecture(lecture_id: str, english: bool = False) -> None:
+async def summarize_lecture(lecture_id: str, **_: object) -> None:
     await p.run_summary(uuid.UUID(lecture_id))
-    if english:
-        await defer(english_plan, lecture_id)
 
 
 @task_queue.task(name="english_plan", queue="llm", retry=RETRY)

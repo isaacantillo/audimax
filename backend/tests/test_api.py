@@ -48,11 +48,11 @@ async def test_upload_process_and_read_a_lecture(authed, tmp_path, deferred):
     assert course["lecture_count"] == 0
 
     files = [("files", (f"SE1_L1_{n}.mp3", make_audio(tmp_path / f"a{n}.mp3", s).read_bytes(), "audio/mpeg")) for n, s in ((2, 30), (1, 40))]
-    r = await authed.post("/api/lectures", data={"course_id": course["id"], "english": "true"}, files=files)
+    r = await authed.post("/api/lectures", data={"course_id": course["id"]}, files=files)
     assert r.status_code == 201, r.text
     lecture = r.json()
     assert lecture["title"] == "SE1_L1"  # derived from the file names, part suffix dropped
-    assert deferred == [("transcribe_lecture", {"lecture_id": lecture["id"], "english": True})]
+    assert deferred == [("transcribe_lecture", {"lecture_id": lecture["id"]})], "the English version is never queued by an upload"
 
     detail = (await authed.get(f"/api/lectures/{lecture['id']}")).json()
     assert detail["status"] == "uploaded"

@@ -19,11 +19,11 @@ This is the same `docker-compose.yml` the server runs, with `docker-compose.over
 
 ### What happens to an upload
 
-`uploaded → transcribing → transcribed → translating → summarizing → ready`, then optionally (button on the lecture, or a checkbox at upload) `chunking → scripting → english_ready`. The English version is a checked text: each topic is rewritten, then verified against a checklist of what the German contained, and rewritten again if something is missing or invented. Watch it on the **Activity** page; failed steps show the reason and can be retried. A lecture recorded in several files (`SE1_L1_1.m4a`, `SE1_L1_2.m4a`) is uploaded together and treated as one lecture.
+`uploaded → transcribing → transcribed → translating → summarizing → ready`, then optionally (the button on a finished lecture) `chunking → scripting → english_ready`. The English version is a checked text: each topic is rewritten, then verified against a checklist of what the German contained, and rewritten again if something is missing or invented. Watch it on the **Activity** page; failed steps show the reason and can be retried. A lecture recorded in several files (`SE1_L1_1.m4a`, `SE1_L1_2.m4a`) is uploaded together and treated as one lecture.
 
 ## Live subtitles
 
-The **Live** page (or **Go live** on a course) shows subtitles of what the lecturer is saying, a second or two behind, in the browser on an iPad or MacBook. Press Start, allow the microphone, and use the size and full-screen buttons for a readable view. When you stop, **Save as lecture** turns the recording into a normal lecture (accurate transcript, translation, summary, optionally the English version); **Discard** throws it away.
+The **Live** page (or **Go live** on a course) shows subtitles of what the lecturer is saying, a second or two behind, in the browser on an iPad or MacBook. Press Start, allow the microphone, and use the size and full-screen buttons for a readable view. When you stop, **Save as lecture** turns the recording into a normal lecture (accurate transcript, translation, summary; the English version from the button on the lecture); **Discard** throws it away.
 
 - Needs `OPENAI_API_KEY` (OpenAI's realtime transcription; OpenRouter has no streaming speech-to-text). Model and language: `LIVE_TRANSCRIBE_MODEL` (default `gpt-live-transcribe`), `LIVE_LANGUAGE` (default `de`). With `AI_STUB=true` the subtitles are fake and nothing leaves the machine.
 - The browser streams the audio to the app (`/api/live/ws`), which passes it on to OpenAI and keeps a copy until it is saved or discarded (unsaved copies are deleted after three days).
@@ -77,7 +77,7 @@ Everything runs on one VPS: Postgres, the API, the worker, nginx and Caddy, whic
    ```
    The same command deploys an update after you change the code.
 4. Backups: cron runs `scripts/backup.sh` nightly (`0 3 * * *`). It dumps the database to `backups/` (keeps 14) and copies each dump to R2 under `backups/`. Recordings are in R2 already; the database is the part a dead disk would take.
-5. Users: `./scripts/users.sh add <name>` creates one with a random password, `./scripts/users.sh reset <name>` gives a new one (and logs them out of every browser), `./scripts/users.sh list` lists them. The password is printed once. Every user sees and can change all courses and lectures: there is no per-user data.
+5. Users: `./scripts/users.sh add <name>` creates one with a random password, `./scripts/users.sh reset <name>` gives a new one (and logs them out of every browser), `./scripts/users.sh list` lists them. The password is printed once. Each user sees only the courses they added (and everything in them); the admin (the user created from `ADMIN_USERNAME` on first start) sees every course, and each course card says who added it. To move a course to another user: `UPDATE courses SET user_id = (SELECT id FROM users WHERE username = '<name>') WHERE name = '<course>'`.
 
 ## Layout
 

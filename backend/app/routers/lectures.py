@@ -10,10 +10,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import storage
+from app.auth import current_user
 from app.db import get_session
 from app.jobs import pipeline, tasks
-from app.models import Chunk, Course, Lecture, LecturePart, Paragraph, Unit
-from app.routers.common import get_or_404, media_url
+from app.models import Chunk, Lecture, LecturePart, Paragraph, Unit, User
+from app.routers.common import media_url, owned_course, owned_lecture
 from app.schemas import lectures as s
 from app.schemas.enums import LectureStatus
 from app.schemas.lectures import Lecture as LectureRef
@@ -34,12 +35,12 @@ def _safe(name: str) -> str:
 async def create_lecture(
     course_id: uuid.UUID = Form(),
     title: str = Form(""),
-    english: bool = Form(False),
     files: list[UploadFile] = File(...),
+    user: User = Depends(current_user),
     db: AsyncSession = Depends(get_session),
 ):
     """Upload one lecture as one or more recordings (they are joined in filename order)."""
-    await get_or_404(db, Course, course_id, "Course")
+    await owned_course(db, course_id, user)
     bad = [f.filename for f in files if Path(f.filename or "").suffix.lower() not in AUDIO_SUFFIXES]
     if not files or bad:
         raise HTTPException(422, f"Not audio files: {bad or 'no files given'}")
@@ -58,7 +59,7 @@ async def create_lecture(
             storage.put_file(key, Path(tmp.name))
         db.add(LecturePart(lecture_id=lecture.id, n=n, filename=filename, audio_key=key))
     await db.commit()
-    await tasks.defer(tasks.transcribe_lecture, str(lecture.id), english=english)
+    await tasks.defer(tasks.transcribe_lecture, str(lecture.id))
     return LectureRef(id=lecture.id, title=lecture.title)
 
 
@@ -71,8 +72,8 @@ def _part_at(parts: list[LecturePart], t: float) -> LecturePart:
 
 
 @router.get("/lectures/{lecture_id}", response_model=s.TranscriptDetails)
-async def get_lecture(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
-    lecture = await get_or_404(db, Lecture, lecture_id, "Lecture")
+async def get_lecture(lecture_id: uuid.UUID, user: User = Depends(current_user), db: AsyncSession = Depends(get_session)):
+    lecture = await owned_lecture(db, lecture_id, user)
     parts = list((await db.execute(select(LecturePart).where(LecturePart.lecture_id == lecture_id).order_by(LecturePart.n))).scalars())
     units = list((await db.execute(select(Unit).where(Unit.lecture_id == lecture_id).order_by(Unit.n))).scalars())
 
@@ -117,10 +118,11 @@ async def download_transcript(
     lecture_id: uuid.UUID,
     version: TranscriptVersion = Query(TranscriptVersion.original, description="original (German), translation (English) or both"),
     timestamps: bool = Query(True, description="prefix each sentence with its time in the lecture"),
+    user: User = Depends(current_user),
     db: AsyncSession = Depends(get_session),
 ):
     """The transcript as a UTF-8 text file."""
-    lecture = await get_or_404(db, Lecture, lecture_id, "Lecture")
+    lecture = await owned_lecture(db, lecture_id, user)
     units = list((await db.execute(select(Unit).where(Unit.lecture_id == lecture_id).order_by(Unit.n))).scalars())
     if not units:
         raise HTTPException(409, "The transcript is not ready yet.")
@@ -143,16 +145,16 @@ async def download_transcript(
 
 
 @router.delete("/lectures/{lecture_id}", status_code=204)
-async def delete_lecture(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
-    lecture = await get_or_404(db, Lecture, lecture_id, "Lecture")
+async def delete_lecture(lecture_id: uuid.UUID, user: User = Depends(current_user), db: AsyncSession = Depends(get_session)):
+    lecture = await owned_lecture(db, lecture_id, user)
     await db.delete(lecture)
     await db.commit()
     storage.delete_prefix(f"lectures/{lecture_id}/")
 
 
 @router.get("/lectures/{lecture_id}/summary", response_model=LectureSummary)
-async def get_summary(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
-    l = await get_or_404(db, Lecture, lecture_id, "Lecture")
+async def get_summary(lecture_id: uuid.UUID, user: User = Depends(current_user), db: AsyncSession = Depends(get_session)):
+    l = await owned_lecture(db, lecture_id, user)
     return LectureSummary(
         id=l.id, title=l.title, summary=l.summary or "", status=LectureStatus(l.status),
         duration_seconds=int(l.duration), date=l.date, has_english=await has_english(db, lecture_id),
@@ -160,9 +162,9 @@ async def get_summary(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_sess
 
 
 @router.post("/lectures/{lecture_id}/english", status_code=202)
-async def create_english(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_session)):
+async def create_english(lecture_id: uuid.UUID, user: User = Depends(current_user), db: AsyncSession = Depends(get_session)):
     """Build (or rebuild from scratch) the English version of the lecture, as text."""
-    l = await get_or_404(db, Lecture, lecture_id, "Lecture")
+    l = await owned_lecture(db, lecture_id, user)
     if l.status not in READY_FOR_ENGLISH or not l.duration:
         raise HTTPException(409, f"The lecture is {l.status}; wait until it is ready.")
     unit_count = len((await db.execute(select(Unit.id).where(Unit.lecture_id == lecture_id).limit(1))).all())
@@ -175,9 +177,9 @@ async def create_english(lecture_id: uuid.UUID, db: AsyncSession = Depends(get_s
 
 
 @router.post("/lectures/{lecture_id}/english/chunks/{n}/rerun", status_code=202)
-async def rerun_chunk(lecture_id: uuid.UUID, n: int, db: AsyncSession = Depends(get_session)):
+async def rerun_chunk(lecture_id: uuid.UUID, n: int, user: User = Depends(current_user), db: AsyncSession = Depends(get_session)):
     """Rewrite one chunk of the English version."""
-    l = await get_or_404(db, Lecture, lecture_id, "Lecture")
+    l = await owned_lecture(db, lecture_id, user)
     if l.status not in {"english_ready", "failed"}:
         raise HTTPException(409, f"The lecture is {l.status}; wait until it finishes.")
     try:

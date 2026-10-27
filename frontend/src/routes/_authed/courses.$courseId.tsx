@@ -8,7 +8,6 @@ import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { fmt, isBusy } from '@/lib/format'
@@ -35,13 +34,11 @@ function CoursePage() {
   })
   const [title, setTitle] = useState('')
   const [files, setFiles] = useState<File[]>([])
-  const [english, setEnglish] = useState(false)
   const upload = useMutation({
-    mutationFn: () => uploadLecture({ courseId, title, files, english }),
+    mutationFn: () => uploadLecture({ courseId, title, files }),
     onSuccess: () => {
       setTitle('')
       setFiles([])
-      setEnglish(false)
       void queryClient.invalidateQueries()
     },
   })
@@ -96,10 +93,6 @@ function CoursePage() {
         <p className="text-xs text-muted-foreground">
           One lecture in several recordings? Select them all: they are joined in filename order (SE1_L1_1, SE1_L1_2…).
         </p>
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox checked={english} onCheckedChange={(v) => setEnglish(v === true)} />
-          Also create the English version (a text, uses a few AI calls)
-        </label>
         {upload.isError && <p className="text-sm text-destructive">{upload.error.message}</p>}
         <Button type="submit" disabled={files.length === 0 || upload.isPending}>
           {upload.isPending ? 'Uploading…' : `Upload${files.length > 1 ? ` ${files.length} files` : ''}`}

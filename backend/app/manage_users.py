@@ -52,7 +52,8 @@ async def reset(username: str) -> str:
 async def list_users() -> None:
     async with SessionLocal() as db:
         for user in (await db.execute(select(User).order_by(User.created_at))).scalars():
-            print(f"{user.username}\t(created {user.created_at:%Y-%m-%d})")
+            role = "admin, sees every course" if user.is_admin else "sees own courses"
+            print(f"{user.username}\t{role}\t(created {user.created_at:%Y-%m-%d})")
 
 
 def main() -> None:

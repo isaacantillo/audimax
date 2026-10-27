@@ -78,11 +78,11 @@ def test_subtitles_stream_back_and_the_recording_can_be_saved_as_a_lecture(app_c
             ws.send_bytes(SECOND)
     assert live.pcm_path(session).stat().st_size == 6 * len(SECOND)
 
-    r = app_client.post(f"/api/live/{session}/save", json={"course_id": course["id"], "title": "Live test", "english": True})
+    r = app_client.post(f"/api/live/{session}/save", json={"course_id": course["id"], "title": "Live test"})
     assert r.status_code == 201, r.text
     lecture = r.json()
     assert lecture["title"] == "Live test"
-    assert app_client.calls == [("transcribe_lecture", {"lecture_id": lecture["id"], "english": True})]
+    assert app_client.calls == [("transcribe_lecture", {"lecture_id": lecture["id"]})]
     assert not live.pcm_path(session).exists(), "the raw recording is removed once it is a lecture"
     detail = app_client.get(f"/api/lectures/{lecture['id']}").json()
     assert detail["status"] == "uploaded" and detail["parts"][0]["filename"] == "live-recording.mp3"

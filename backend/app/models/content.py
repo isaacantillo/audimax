@@ -30,6 +30,8 @@ class Course(Base):
     __tablename__ = "courses"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    # The only owner link: lectures, recordings, transcripts and jobs belong to whoever owns the course.
+    user_id: Mapped[uuid.UUID] = _fk("users")
     name: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=_now)
 

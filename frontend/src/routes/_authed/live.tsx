@@ -9,7 +9,6 @@ import {
   saveLiveRecordingMutation,
 } from '@/client/@tanstack/react-query.gen'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { useLiveSubtitles, type LiveStatus } from '@/hooks/use-live-subtitles'
 import { fmt } from '@/lib/format'
@@ -127,7 +126,6 @@ function SaveRecording(props: { sessionId: string; seconds: number; defaultCours
   const { data: courses } = useQuery(listCoursesOptions())
   const [courseId, setCourseId] = useState(props.defaultCourse ?? '')
   const [title, setTitle] = useState('')
-  const [english, setEnglish] = useState(false)
   const selected = courseId || courses?.[0]?.id || ''
 
   const save = useMutation({
@@ -144,7 +142,7 @@ function SaveRecording(props: { sessionId: string; seconds: number; defaultCours
       className="max-w-xl space-y-3 rounded-md border p-4"
       onSubmit={(e) => {
         e.preventDefault()
-        save.mutate({ path: { session_id: props.sessionId }, body: { course_id: selected, title, english } })
+        save.mutate({ path: { session_id: props.sessionId }, body: { course_id: selected, title } })
       }}
     >
       <h2 className="font-semibold">Save the recording as a lecture ({fmt(props.seconds)})</h2>
@@ -163,10 +161,6 @@ function SaveRecording(props: { sessionId: string; seconds: number; defaultCours
         ))}
       </select>
       <Input placeholder="Title (optional, defaults to the date and time)" value={title} onChange={(e) => setTitle(e.target.value)} />
-      <label className="flex items-center gap-2 text-sm">
-        <Checkbox checked={english} onCheckedChange={(v) => setEnglish(v === true)} />
-        Also create the English version (a text, uses a few AI calls)
-      </label>
       {save.isError && <p className="text-sm text-destructive">Could not save the recording. Try again.</p>}
       {courses?.length === 0 && <p className="text-sm text-destructive">Create a course first to save the recording.</p>}
       <div className="flex gap-2">

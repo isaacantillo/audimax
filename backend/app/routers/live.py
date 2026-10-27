@@ -13,8 +13,8 @@ from app import storage
 from app.auth import current_session, current_user
 from app.db import SessionLocal, get_session
 from app.jobs import tasks
-from app.models import Course, Lecture, LecturePart
-from app.routers.common import get_or_404
+from app.models import Lecture, LecturePart, User
+from app.routers.common import owned_course
 from app.schemas.lectures import Lecture as LectureRef
 from app.schemas.live import SaveLiveRecording
 from app.services import live
@@ -89,10 +89,12 @@ async def live_subtitles(ws: WebSocket, session: uuid.UUID = Query()):
             pass  # already closed by the browser
 
 
-@router.post("/live/{session_id}/save", response_model=LectureRef, status_code=201, dependencies=[Depends(current_user)])
-async def save_live_recording(session_id: uuid.UUID, body: SaveLiveRecording, db: AsyncSession = Depends(get_session)):
+@router.post("/live/{session_id}/save", response_model=LectureRef, status_code=201)
+async def save_live_recording(
+    session_id: uuid.UUID, body: SaveLiveRecording, user: User = Depends(current_user), db: AsyncSession = Depends(get_session)
+):
     """Turn what was recorded during a live session into a lecture; the usual pipeline takes over."""
-    await get_or_404(db, Course, body.course_id, "Course")
+    await owned_course(db, body.course_id, user)
     pcm = live.pcm_path(session_id)
     if not pcm.exists() or pcm.stat().st_size < live.BYTES_PER_SECOND * MIN_SAVE_SECONDS:
         raise HTTPException(404, "There is no recording to save for this session.")
@@ -110,7 +112,7 @@ async def save_live_recording(session_id: uuid.UUID, body: SaveLiveRecording, db
     db.add(LecturePart(lecture_id=lecture.id, n=0, filename=filename, audio_key=key))
     await db.commit()
     pcm.unlink(missing_ok=True)
-    await tasks.defer(tasks.transcribe_lecture, str(lecture.id), english=body.english)
+    await tasks.defer(tasks.transcribe_lecture, str(lecture.id))
     return LectureRef(id=lecture.id, title=lecture.title)
 
 

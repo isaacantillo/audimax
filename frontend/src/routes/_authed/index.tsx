@@ -43,8 +43,11 @@ function CourseList() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                {course.lecture_count} lectures · last activity{' '}
-                {new Date(course.last_activity_at).toLocaleDateString()}
+                <p>Added by {course.added_by}</p>
+                <p>
+                  {course.lecture_count} lectures · last activity{' '}
+                  {new Date(course.last_activity_at).toLocaleDateString()}
+                </p>
               </CardContent>
             </Card>
           </Link>
