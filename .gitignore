@@ -10,7 +10,6 @@ backend/data/*
 # Generated / build output
 frontend/dist/
 frontend/node_modules/
-backend/dist/
 backend/openapi.json
 
 # Secrets

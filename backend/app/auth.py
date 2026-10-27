@@ -4,9 +4,10 @@ import secrets
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import HTTPConnection
 
 from app.db import get_session
 from app.models import AuthSession, User
@@ -39,7 +40,7 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def _token_from(request: Request) -> str | None:
+def _token_from(request: HTTPConnection) -> str | None:
     header = request.headers.get("authorization", "")
     if header.lower().startswith("bearer "):
         return header[7:].strip()
@@ -47,7 +48,7 @@ def _token_from(request: Request) -> str | None:
 
 
 async def current_session(
-    request: Request, db: AsyncSession = Depends(get_session)
+    request: HTTPConnection, db: AsyncSession = Depends(get_session)
 ) -> tuple[User, AuthSession]:
     token = _token_from(request)
     if token:

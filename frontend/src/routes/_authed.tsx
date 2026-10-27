@@ -37,6 +37,9 @@ function AuthedLayout() {
           <Link to="/" className="text-lg font-semibold">
             Audimax
           </Link>
+          <Link to="/live" className="text-sm text-muted-foreground [&.active]:text-foreground">
+            Live
+          </Link>
           <Link to="/search" className="text-sm text-muted-foreground [&.active]:text-foreground">
             Search
           </Link>

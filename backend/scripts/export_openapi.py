@@ -2,11 +2,9 @@
 
 import json
 import sys
-import os
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-os.environ.setdefault("FASTAPI_ENV", "development")  # dist/ may not exist yet
 
 from app.main import app  # noqa: E402
 

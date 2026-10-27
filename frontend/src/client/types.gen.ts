@@ -302,6 +302,24 @@ export type LoginRequest = {
 };
 
 /**
+ * SaveLiveRecording
+ */
+export type SaveLiveRecording = {
+    /**
+     * Course Id
+     */
+    course_id: string;
+    /**
+     * Title
+     */
+    title?: string;
+    /**
+     * English
+     */
+    english?: boolean;
+};
+
+/**
  * SearchHit
  */
 export type SearchHit = {
@@ -1022,3 +1040,63 @@ export type SearchResponses = {
 };
 
 export type SearchResponse2 = SearchResponses[keyof SearchResponses];
+
+export type SaveLiveRecordingData = {
+    body: SaveLiveRecording;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/live/{session_id}/save';
+};
+
+export type SaveLiveRecordingErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SaveLiveRecordingError = SaveLiveRecordingErrors[keyof SaveLiveRecordingErrors];
+
+export type SaveLiveRecordingResponses = {
+    /**
+     * Successful Response
+     */
+    201: Lecture;
+};
+
+export type SaveLiveRecordingResponse = SaveLiveRecordingResponses[keyof SaveLiveRecordingResponses];
+
+export type DiscardLiveRecordingData = {
+    body?: never;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/live/{session_id}';
+};
+
+export type DiscardLiveRecordingErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DiscardLiveRecordingError = DiscardLiveRecordingErrors[keyof DiscardLiveRecordingErrors];
+
+export type DiscardLiveRecordingResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DiscardLiveRecordingResponse = DiscardLiveRecordingResponses[keyof DiscardLiveRecordingResponses];

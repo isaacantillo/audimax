@@ -2,6 +2,7 @@
 and scripts/resegment.py, which stay as standalone CLIs."""
 
 import asyncio
+import json
 import re
 import subprocess
 import tempfile
@@ -13,13 +14,16 @@ from xml.sax.saxutils import escape
 
 import deepl
 from openai import OpenAI
+from pydantic import BaseModel
 
 from app.config import settings
-from app.services import stub
+from app.services import llm, stub
 
 # MAI-Transcribe 2 rejects m4a/aac uploads with a provider 400; these are accepted.
 SUPPORTED_UPLOAD_SUFFIXES = {".wav", ".mp3", ".flac", ".ogg"}
 DEEPL_BATCH = 150  # units per request, well under DeepL's 128 KiB limit
+LLM_BATCH = 80  # sentences per request: small enough that the model returns every id
+LLM_CONCURRENCY = 4
 
 
 def to_supported_audio(path: Path, workdir: Path) -> Path:
@@ -121,10 +125,8 @@ def _translate_batch(client: deepl.DeepLClient, texts: list[str]) -> list[str]:
     return [by_id[i] for i in range(len(texts))]
 
 
-def translate(texts: list[str]) -> list[str]:
-    """Blocking: German -> English, sentence-aligned, in batches."""
-    if settings.ai_stub:
-        return [f"[EN] {t}" for t in texts]
+def translate_deepl(texts: list[str]) -> list[str]:
+    """Blocking: German -> English with DeepL, sentence-aligned, in batches."""
     client = deepl.DeepLClient(settings.deepl_api_key)
     out: list[str] = []
     for i in range(0, len(texts), DEEPL_BATCH):
@@ -132,9 +134,52 @@ def translate(texts: list[str]) -> list[str]:
     return out
 
 
+class _Sentence(BaseModel):
+    id: int
+    en: str
+
+
+class _Translation(BaseModel):
+    sentences: list[_Sentence]
+
+
+TRANSLATE_SYSTEM = """You translate sentences from a German university lecture transcript into natural English (US spelling).
+You get a JSON list of {"id", "de"}. Return exactly one {"id", "en"} for every id, in the same order.
+- Translate each sentence on its own line of meaning; do not merge, split, skip or reorder sentences.
+- Use the surrounding sentences for context, and keep technical terms consistent across the batch.
+- The text is speech recognition output: keep the meaning, quietly fix obvious recognition slips, keep filler short.
+- Do not add explanations, notes or anything that was not said."""
+
+
+async def _translate_llm_batch(texts: list[str]) -> list[str]:
+    user = json.dumps([{"id": i, "de": t} for i, t in enumerate(texts)], ensure_ascii=False)
+    for attempt in range(2):
+        result = await llm.ask(TRANSLATE_SYSTEM, user, _Translation, temperature=0.1)
+        by_id = {s.id: s.en.strip() for s in result.sentences}
+        if set(by_id) == set(range(len(texts))):
+            return [by_id[i] for i in range(len(texts))]
+    raise ValueError(f"translation alignment broken: got {len(by_id)} ids for {len(texts)} sentences")
+
+
+async def translate_llm(texts: list[str]) -> list[str]:
+    """German -> English with the OpenRouter models, sentence-aligned, a few batches at a time."""
+    gate = asyncio.Semaphore(LLM_CONCURRENCY)
+
+    async def one(batch: list[str]) -> list[str]:
+        async with gate:
+            return await _translate_llm_batch(batch)
+
+    batches = [texts[i : i + LLM_BATCH] for i in range(0, len(texts), LLM_BATCH)]
+    return [t for part in await asyncio.gather(*(one(b) for b in batches)) for t in part]
+
+
 async def atranscribe(path: Path) -> dict[str, Any]:
     return await asyncio.to_thread(transcribe_file, path)
 
 
 async def atranslate(texts: list[str]) -> list[str]:
-    return await asyncio.to_thread(translate, texts)
+    if settings.ai_stub:
+        return [f"[EN] {t}" for t in texts]
+    if settings.translator == "deepl":
+        return await asyncio.to_thread(translate_deepl, texts)
+    return await translate_llm(texts)

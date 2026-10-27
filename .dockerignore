@@ -1,8 +1,0 @@
-**/node_modules
-**/.venv
-**/__pycache__
-**/dist
-.git
-.env
-backend/data
-frontend/src/routeTree.gen.ts.bak

@@ -10,6 +10,7 @@ from functools import cache
 from pathlib import Path
 
 import boto3
+from boto3.s3.transfer import TransferConfig
 from botocore.config import Config
 
 from app.config import settings
@@ -23,8 +24,14 @@ def _s3():
         aws_access_key_id=settings.r2_access_key_id,
         aws_secret_access_key=settings.r2_secret_access_key,
         region_name="auto",
-        config=Config(signature_version="s3v4", retries={"max_attempts": 3}),
+        # A long recording is many multipart requests; on a flaky link (seen: TLS "bad record mac"
+        # through Docker Desktop) one failed part must not fail the whole upload, so retry generously.
+        config=Config(signature_version="s3v4", retries={"max_attempts": 10, "mode": "standard"}),
     )
+
+
+# boto3 sends 10 parts at once by default; fewer keeps a slow or shared uplink from choking.
+_UPLOAD = TransferConfig(max_concurrency=4)
 
 
 def _local(key: str) -> Path:
@@ -37,7 +44,7 @@ def _local(key: str) -> Path:
 def put_file(key: str, path: Path, content_type: str | None = None) -> None:
     content_type = content_type or mimetypes.guess_type(key)[0] or "application/octet-stream"
     if settings.r2_configured:
-        _s3().upload_file(str(path), settings.r2_bucket_name, key, ExtraArgs={"ContentType": content_type})
+        _s3().upload_file(str(path), settings.r2_bucket_name, key, ExtraArgs={"ContentType": content_type}, Config=_UPLOAD)
         return
     dest = _local(key)
     dest.parent.mkdir(parents=True, exist_ok=True)

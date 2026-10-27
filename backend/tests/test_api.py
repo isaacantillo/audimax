@@ -171,30 +171,6 @@ async def test_deleting_a_lecture_removes_its_files_and_data(authed, lecture_id)
     assert (await authed.get("/api/search", params={"q": "Wort"})).json()["hits"] == []
 
 
-async def test_html_is_never_cached_but_hashed_assets_are():
-    """After a deploy, a cached index.html would point browsers at bundles that no longer exist."""
-    from fastapi import FastAPI
-    from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
-    from httpx import ASGITransport, AsyncClient
-
-    from app.http_cache import cache_headers
-
-    mini = FastAPI()
-    mini.middleware("http")(cache_headers)
-    mini.get("/")(lambda: HTMLResponse("<html/>"))
-    mini.get("/lectures/abc")(lambda: HTMLResponse("<html/>"))
-    mini.get("/assets/app-abc123.js")(lambda: PlainTextResponse("x", media_type="text/javascript"))
-    mini.get("/assets/missing.js")(lambda: JSONResponse({}, status_code=404))
-    mini.get("/api/health")(lambda: JSONResponse({}))
-
-    async with AsyncClient(transport=ASGITransport(app=mini), base_url="http://t") as c:
-        assert (await c.get("/")).headers["cache-control"] == "no-cache"
-        assert (await c.get("/lectures/abc")).headers["cache-control"] == "no-cache"  # SPA deep link
-        assert (await c.get("/assets/app-abc123.js")).headers["cache-control"] == "public, max-age=31536000, immutable"
-        assert "cache-control" not in (await c.get("/assets/missing.js")).headers
-        assert "cache-control" not in (await c.get("/api/health")).headers
-
-
 async def test_login_is_rate_limited_after_repeated_failures(client):
     from app.routers.auth import login_failures
 

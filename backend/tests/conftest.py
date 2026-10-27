@@ -1,7 +1,6 @@
 """Tests run against a real Postgres (the Compose `db`, database `audimax_test`) with the offline
 AI stubs and a temp-dir object store. Never touches OpenRouter, DeepL or R2."""
 
-import os
 import subprocess
 import tempfile
 import uuid
@@ -9,9 +8,6 @@ from pathlib import Path
 
 import psycopg
 import pytest
-
-# Importing the app must not need a built frontend (app.frontend() checks dist/ otherwise).
-os.environ.setdefault("FASTAPI_ENV", "development")
 
 from app.config import settings  # noqa: E402
 

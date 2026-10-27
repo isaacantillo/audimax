@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createApiToken, createCourse, createEnglish, createLecture, deleteCourse, deleteLecture, downloadTranscript, getCourse, getLecture, getMe, getSummary, health, listCourses, listJobs, listLectures, login, logout, type Options, rerunChunk, retryJob, search } from '../sdk.gen';
-import type { CreateApiTokenData, CreateApiTokenError, CreateApiTokenResponse, CreateCourseData, CreateCourseError, CreateCourseResponse, CreateEnglishData, CreateEnglishError, CreateLectureData, CreateLectureError, CreateLectureResponse, DeleteCourseData, DeleteCourseError, DeleteCourseResponse, DeleteLectureData, DeleteLectureError, DeleteLectureResponse, DownloadTranscriptData, DownloadTranscriptError, DownloadTranscriptResponse, GetCourseData, GetCourseError, GetCourseResponse, GetLectureData, GetLectureError, GetLectureResponse, GetMeData, GetMeResponse, GetSummaryData, GetSummaryError, GetSummaryResponse, HealthData, HealthResponse, ListCoursesData, ListCoursesResponse, ListJobsData, ListJobsError, ListJobsResponse, ListLecturesData, ListLecturesError, ListLecturesResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, RerunChunkData, RerunChunkError, RetryJobData, RetryJobError, SearchData, SearchError, SearchResponse2 } from '../types.gen';
+import { createApiToken, createCourse, createEnglish, createLecture, deleteCourse, deleteLecture, discardLiveRecording, downloadTranscript, getCourse, getLecture, getMe, getSummary, health, listCourses, listJobs, listLectures, login, logout, type Options, rerunChunk, retryJob, saveLiveRecording, search } from '../sdk.gen';
+import type { CreateApiTokenData, CreateApiTokenError, CreateApiTokenResponse, CreateCourseData, CreateCourseError, CreateCourseResponse, CreateEnglishData, CreateEnglishError, CreateLectureData, CreateLectureError, CreateLectureResponse, DeleteCourseData, DeleteCourseError, DeleteCourseResponse, DeleteLectureData, DeleteLectureError, DeleteLectureResponse, DiscardLiveRecordingData, DiscardLiveRecordingError, DiscardLiveRecordingResponse, DownloadTranscriptData, DownloadTranscriptError, DownloadTranscriptResponse, GetCourseData, GetCourseError, GetCourseResponse, GetLectureData, GetLectureError, GetLectureResponse, GetMeData, GetMeResponse, GetSummaryData, GetSummaryError, GetSummaryResponse, HealthData, HealthResponse, ListCoursesData, ListCoursesResponse, ListJobsData, ListJobsError, ListJobsResponse, ListLecturesData, ListLecturesError, ListLecturesResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, RerunChunkData, RerunChunkError, RetryJobData, RetryJobError, SaveLiveRecordingData, SaveLiveRecordingError, SaveLiveRecordingResponse, SearchData, SearchError, SearchResponse2 } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -404,3 +404,39 @@ export const searchOptions = (options: Options<SearchData>) => queryOptions<Sear
     },
     queryKey: searchQueryKey(options)
 });
+
+/**
+ * Save Live Recording
+ *
+ * Turn what was recorded during a live session into a lecture; the usual pipeline takes over.
+ */
+export const saveLiveRecordingMutation = (options?: Partial<Options<SaveLiveRecordingData>>): UseMutationOptions<SaveLiveRecordingResponse, SaveLiveRecordingError, Options<SaveLiveRecordingData>> => {
+    const mutationOptions: UseMutationOptions<SaveLiveRecordingResponse, SaveLiveRecordingError, Options<SaveLiveRecordingData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await saveLiveRecording({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Discard Live Recording
+ */
+export const discardLiveRecordingMutation = (options?: Partial<Options<DiscardLiveRecordingData>>): UseMutationOptions<DiscardLiveRecordingResponse, DiscardLiveRecordingError, Options<DiscardLiveRecordingData>> => {
+    const mutationOptions: UseMutationOptions<DiscardLiveRecordingResponse, DiscardLiveRecordingError, Options<DiscardLiveRecordingData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await discardLiveRecording({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};

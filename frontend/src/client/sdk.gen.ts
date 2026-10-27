@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateApiTokenData, CreateApiTokenErrors, CreateApiTokenResponses, CreateCourseData, CreateCourseErrors, CreateCourseResponses, CreateEnglishData, CreateEnglishErrors, CreateEnglishResponses, CreateLectureData, CreateLectureErrors, CreateLectureResponses, DeleteCourseData, DeleteCourseErrors, DeleteCourseResponses, DeleteLectureData, DeleteLectureErrors, DeleteLectureResponses, DownloadTranscriptData, DownloadTranscriptErrors, DownloadTranscriptResponses, GetCourseData, GetCourseErrors, GetCourseResponses, GetLectureData, GetLectureErrors, GetLectureResponses, GetMeData, GetMeResponses, GetSummaryData, GetSummaryErrors, GetSummaryResponses, HealthData, HealthResponses, ListCoursesData, ListCoursesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListLecturesData, ListLecturesErrors, ListLecturesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, RerunChunkData, RerunChunkErrors, RerunChunkResponses, RetryJobData, RetryJobErrors, RetryJobResponses, SearchData, SearchErrors, SearchResponses } from './types.gen';
+import type { CreateApiTokenData, CreateApiTokenErrors, CreateApiTokenResponses, CreateCourseData, CreateCourseErrors, CreateCourseResponses, CreateEnglishData, CreateEnglishErrors, CreateEnglishResponses, CreateLectureData, CreateLectureErrors, CreateLectureResponses, DeleteCourseData, DeleteCourseErrors, DeleteCourseResponses, DeleteLectureData, DeleteLectureErrors, DeleteLectureResponses, DiscardLiveRecordingData, DiscardLiveRecordingErrors, DiscardLiveRecordingResponses, DownloadTranscriptData, DownloadTranscriptErrors, DownloadTranscriptResponses, GetCourseData, GetCourseErrors, GetCourseResponses, GetLectureData, GetLectureErrors, GetLectureResponses, GetMeData, GetMeResponses, GetSummaryData, GetSummaryErrors, GetSummaryResponses, HealthData, HealthResponses, ListCoursesData, ListCoursesResponses, ListJobsData, ListJobsErrors, ListJobsResponses, ListLecturesData, ListLecturesErrors, ListLecturesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, RerunChunkData, RerunChunkErrors, RerunChunkResponses, RetryJobData, RetryJobErrors, RetryJobResponses, SaveLiveRecordingData, SaveLiveRecordingErrors, SaveLiveRecordingResponses, SearchData, SearchErrors, SearchResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -162,3 +162,22 @@ export const retryJob = <ThrowOnError extends boolean = false>(options: Options<
  * Plain case-insensitive substring match: no AI, no cost, finds "Vererbung" inside "Mehrfachvererbung".
  */
 export const search = <ThrowOnError extends boolean = false>(options: Options<SearchData, ThrowOnError>): RequestResult<SearchResponses, SearchErrors, ThrowOnError> => (options.client ?? client).get<SearchResponses, SearchErrors, ThrowOnError>({ url: '/api/search', ...options });
+
+/**
+ * Save Live Recording
+ *
+ * Turn what was recorded during a live session into a lecture; the usual pipeline takes over.
+ */
+export const saveLiveRecording = <ThrowOnError extends boolean = false>(options: Options<SaveLiveRecordingData, ThrowOnError>): RequestResult<SaveLiveRecordingResponses, SaveLiveRecordingErrors, ThrowOnError> => (options.client ?? client).post<SaveLiveRecordingResponses, SaveLiveRecordingErrors, ThrowOnError>({
+    url: '/api/live/{session_id}/save',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Discard Live Recording
+ */
+export const discardLiveRecording = <ThrowOnError extends boolean = false>(options: Options<DiscardLiveRecordingData, ThrowOnError>): RequestResult<DiscardLiveRecordingResponses, DiscardLiveRecordingErrors, ThrowOnError> => (options.client ?? client).delete<DiscardLiveRecordingResponses, DiscardLiveRecordingErrors, ThrowOnError>({ url: '/api/live/{session_id}', ...options });

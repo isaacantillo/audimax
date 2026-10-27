@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 class TranscriptVersion(str, enum.Enum):
     original = "original"  # the German sentences
-    translation = "translation"  # the English (DeepL) translation
+    translation = "translation"  # the English translation
     both = "both"  # each German sentence followed by its translation
 
 

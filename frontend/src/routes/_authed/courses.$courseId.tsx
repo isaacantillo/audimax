@@ -6,7 +6,7 @@ import { deleteCourseMutation, getCourseOptions, listLecturesOptions } from '@/c
 import { ConfirmButton } from '@/components/confirm-button'
 import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -50,7 +50,12 @@ function CoursePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">{course.data?.name ?? <Skeleton className="h-8 w-60" />}</h1>
-        <ConfirmButton label="Delete course" question="Delete the course and all its lectures?" variant="destructive" onConfirm={() => remove.mutate({ path: { course_id: courseId } })} />
+        <div className="flex items-center gap-2">
+          <Link to="/live" search={{ course: courseId }} className={buttonVariants({ variant: 'outline' })}>
+            Go live
+          </Link>
+          <ConfirmButton label="Delete course" question="Delete the course and all its lectures?" variant="destructive" onConfirm={() => remove.mutate({ path: { course_id: courseId } })} />
+        </div>
       </div>
 
       <div className="space-y-3">

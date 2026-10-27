@@ -1,12 +1,18 @@
+# Production, as Dokploy deploys it (Compose path: ./docker-compose.yml). In Dokploy add one domain
+# on the `web` service, port 80, HTTPS with Let's Encrypt: Traefik does TLS, nothing else is exposed.
+# Locally, docker-compose.override.yml (merged automatically) publishes ports and adds hot reload.
 x-backend: &backend
-  build: { context: ., dockerfile: backend/Dockerfile }
-  env_file: .env
+  build: ./backend
+  env_file: .env   # Dokploy writes its Environment tab to this file
   environment: &backend-env
     DATABASE_URL: postgresql+psycopg://audimax:${POSTGRES_PASSWORD:-audimax}@db:5432/audimax
     AI_STUB: ${AI_STUB:-false}
+    # Served over HTTPS (Traefik), so the session cookie is HTTPS-only. The local override turns it off.
+    COOKIE_SECURE: ${COOKIE_SECURE:-true}
   volumes:
     # Only used while R2 is not configured; with R2 credentials set nothing is written here.
     - storage:/code/data/storage
+  restart: unless-stopped
 
 services:
   db:
@@ -21,6 +27,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U audimax -d audimax"]
       interval: 5s
       retries: 10
+    restart: unless-stopped
 
   # One-shot: creates/updates every table, including the job queue's.
   migrate:
@@ -30,24 +37,35 @@ services:
     command: ["alembic", "upgrade", "head"]
     restart: "no"
 
+  # The API. Only `web` talks to it.
   app:
     <<: *backend
     depends_on:
       migrate: { condition: service_completed_successfully }
-    ports:
-      - "8000:8000"
-    command: ["fastapi", "run", "app/main.py", "--port", "8000", "--proxy-headers"]
+    expose:
+      - "8000"
+    # Requests arrive through nginx (and Traefik before it), so trust their X-Forwarded-* headers:
+    # the login rate limit needs the real client IP.
+    command: ["fastapi", "run", "app/main.py", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 10s
       retries: 5
 
-  # Runs the background jobs: transcription, translation, the English lecture, slides.
+  # Runs the background jobs: transcription, translation, the English lecture.
   worker:
     <<: *backend
     depends_on:
       migrate: { condition: service_completed_successfully }
     command: ["procrastinate", "--app=app.jobs.queue.task_queue", "worker", "--concurrency=4"]
+
+  # The UI: the built SPA served by nginx, which also forwards /api (and the live-subtitles WebSocket) to `app`.
+  web:
+    build: ./frontend
+    depends_on:
+      app: { condition: service_healthy }
+    expose:
+      - "80"
     restart: unless-stopped
 
 volumes:

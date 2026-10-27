@@ -1,5 +1,11 @@
 # Implementation Plan — Audimax full-stack app
 
+> **Frontend in its own container, deployed with Dokploy (2026-10-19).** FastAPI no longer serves the
+> SPA (`app.frontend()` and the cache-header middleware are gone). `frontend/` has its own image: the
+> Vite build served by nginx, which also forwards `/api` to the backend. Caddy is gone entirely: in
+> production Dokploy's Traefik terminates HTTPS, and `docker-compose.prod.yml` was folded into
+> `docker-compose.yml`, which is now the file Dokploy deploys. §0 and §1 describe the new setup.
+>
 > **Audio generation removed (2026-10-07).** No text-to-speech, no stitched English audio, no English
 > player. The English version is now a text script (still planned, written, verified and linked to the
 > original); `lectures`/`paragraphs` lost their audio columns in migration 0002. Everything below about
@@ -22,12 +28,12 @@
 > - Jobs are one task per *stage* (each internally parallel over chunks/paragraphs), not one task per
 >   chunk with fan-in locking. Stages are idempotent and share a per-lecture lock, so a chunk rerun
 >   is "reset that chunk, run the write/voice/assemble stages again" and costs only the changed text.
-> - Added beyond the plan: transcript search, `AI_STUB` offline mode, login rate limiting, cache headers so a deploy
+> - Added beyond the plan: transcript search, `AI_STUB` offline mode, login rate limiting, cache headers (now in `frontend/nginx.conf`) so a deploy
 >   never leaves browsers on a deleted bundle, `scripts/backup.sh`.
 
 Companion to `PROJECT_BUILD_PLAN.md`. That file holds the *why*; this one holds the *what and in which order*. Follows the API-first sequence from the build plan: screens → response shapes → endpoints → service layer → DB models last.
 
-Verified against the installed versions while writing: FastAPI 0.141.1 (`app.frontend()` exists), Python 3.14, Docker 29 / Compose v5, Node 25, pnpm 11.
+Verified against the installed versions while writing: FastAPI 0.141.1, Python 3.14, Docker 29 / Compose v5, Node 25, pnpm 11.
 
 ---
 
@@ -35,17 +41,16 @@ Verified against the installed versions while writing: FastAPI 0.141.1 (`app.fro
 
 ```
 audimax/
-├── docker-compose.yml           # app + worker + postgres (dev and prod use the same file)
-├── docker-compose.override.yml  # dev only: bind-mounts, fastapi dev, vite dev server
-├── Caddyfile                    # prod only (Phase 4 of the build plan)
+├── docker-compose.yml           # db + migrate + app + worker + web: production, as Dokploy deploys it
+├── docker-compose.override.yml  # local only: published ports, bind-mounts, fastapi dev, plain-HTTP cookies
 ├── .env.example                 # every variable, with placeholders  ← committed
 ├── .env                         # real values                        ← gitignored (already)
 ├── backend/
-│   ├── Dockerfile
+│   ├── Dockerfile               # Python only: API, migrations and worker share this image
 │   ├── pyproject.toml
 │   ├── alembic/                 # migrations
 │   ├── app/
-│   │   ├── main.py              # FastAPI(), routers, app.frontend("/", directory="dist")
+│   │   ├── main.py              # FastAPI(), routers under /api (no static files)
 │   │   ├── config.py            # pydantic-settings: Settings()
 │   │   ├── db.py                # async engine + session dependency
 │   │   ├── auth.py              # session cookie / API token dependency
@@ -53,11 +58,12 @@ audimax/
 │   │   ├── jobs/                # procrastinate app + one task per pipeline stage
 │   │   ├── models/              # SQLAlchemy tables (written LAST, Phase 3)
 │   │   ├── schemas/             # Pydantic response shapes (exists)
-│   │   ├── routers/             # courses, lectures, documents, chat, mindmap, jobs, auth
-│   │   └── services/            # transcription, translation, english_lecture, retrieval
-│   ├── scripts/                 # the prototype pipeline (exists) — stays as the CLI
-│   └── dist/                    # frontend build output, copied in by the Dockerfile
+│   │   ├── routers/             # courses, lectures, live, search, jobs, media, auth
+│   │   └── services/            # transcription, translation, english_lecture, live
+│   └── scripts/                 # the prototype pipeline (exists) — stays as the CLI
 └── frontend/
+    ├── Dockerfile               # Vite build, then nginx serving dist/
+    ├── nginx.conf               # static files + SPA fallback + caching + /api → app:8000
     ├── package.json
     ├── vite.config.ts           # proxy /api → backend in dev
     ├── openapi-ts.config.ts     # generated client from backend/openapi.json
@@ -69,119 +75,21 @@ audimax/
         └── lib/
 ```
 
-Two processes share one image: `app` runs `fastapi run`, `worker` runs `procrastinate worker`. Same code, same dependencies, different command.
+Two images. The backend image runs three ways (same code, different command): `migrate` runs Alembic once, `app` runs `fastapi run`, `worker` runs `procrastinate worker`. The frontend image is the built SPA behind nginx.
 
 ---
 
 ## 1. Docker Compose
 
-### `docker-compose.yml`
+The files themselves are the reference (`docker-compose.yml`, `docker-compose.override.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `frontend/nginx.conf`); this is how they fit together.
 
-```yaml
-services:
-  db:
-    image: pgvector/pgvector:pg17
-    environment:
-      POSTGRES_DB: audimax
-      POSTGRES_USER: audimax
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U audimax"]
-      interval: 5s
-      retries: 10
+- **`web`** (frontend image) is the only thing the browser talks to: `localhost:3000` locally, the Dokploy domain in production. nginx serves `dist/`, falls back to `index.html` for client-side routes, and forwards `/api/*` (WebSockets included, for the live subtitles) to `app:8000`. The browser sees one origin, so the session cookie needs no CORS setup. Uploads stream straight through (`client_max_body_size 2g`, no request buffering) and the WebSocket may stay open for hours.
+- **Cache headers** live in `nginx.conf` too: hashed `/assets/*` are cached forever, everything else is `no-cache` (a cached `index.html` would point at bundles a deploy deleted), and a missing asset is a plain 404, never the SPA page.
+- **`app`** (backend image) serves only the API. It trusts the `X-Forwarded-*` headers from nginx and Traefik (`--forwarded-allow-ips "*"`) so the login rate limit sees the real client IP. It is only `expose`d; the local override publishes port 8000 for the Vite dev server and `/docs`.
+- **Production (Dokploy)**: a Compose app pointed at `docker-compose.yml` with Isolated Deployment on, one domain on `web` port 80 with Let's Encrypt. Dokploy's Traefik terminates HTTPS and forwards plain HTTP to nginx, which passes `X-Forwarded-Proto` on. `COOKIE_SECURE` defaults to true in the compose file; the local override sets it false.
+- **Dev**: the React app runs on the Vite dev server (`pnpm dev`, port 5173) with `/api` (and the WebSocket) proxied to `localhost:8000`, the backend on `fastapi dev` with `backend/app` bind-mounted. That keeps hot reload on both sides; the `web` container is for trying the production build locally.
 
-  app:
-    build: { context: ., dockerfile: backend/Dockerfile }   # root context: Dockerfile needs frontend/ too
-    env_file: .env
-    environment:
-      DATABASE_URL: postgresql+psycopg://audimax:${POSTGRES_PASSWORD}@db:5432/audimax
-    depends_on:
-      db: { condition: service_healthy }
-    ports:
-      - "8000:8000"
-    command: ["fastapi", "run", "app/main.py", "--port", "8000", "--proxy-headers"]
-
-  worker:
-    build: { context: ., dockerfile: backend/Dockerfile }
-    env_file: .env
-    environment:
-      DATABASE_URL: postgresql+psycopg://audimax:${POSTGRES_PASSWORD}@db:5432/audimax
-    depends_on:
-      db: { condition: service_healthy }
-    command: ["procrastinate", "--app=app.jobs.queue.task_queue", "worker", "--concurrency=4"]
-
-volumes:
-  pgdata:
-```
-
-### `docker-compose.override.yml` (dev; Compose picks it up automatically)
-
-```yaml
-services:
-  app:
-    volumes:
-      - ./backend/app:/code/app
-    environment:
-      FASTAPI_ENV: development      # app.frontend() only warns if dist/ is missing
-    command: ["fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
-  worker:
-    volumes:
-      - ./backend/app:/code/app
-  db:
-    ports:
-      - "5432:5432"
-```
-
-In dev the React app runs on the Vite dev server (`pnpm dev`, port 5173) with `/api` proxied to `localhost:8000`; `app.frontend()` is only used in the production image. That keeps hot reload on both sides.
-
-### `backend/Dockerfile` (multi-stage: build frontend, then Python image)
-
-```dockerfile
-FROM node:25-slim AS frontend
-WORKDIR /fe
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
-COPY frontend/ .
-RUN pnpm build                       # → /fe/dist
-
-FROM python:3.14-slim
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
-WORKDIR /code
-COPY backend/pyproject.toml backend/uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
-COPY backend/app ./app
-COPY backend/alembic ./alembic
-COPY backend/alembic.ini .
-COPY --from=frontend /fe/dist ./dist
-ENV PATH="/code/.venv/bin:$PATH"
-EXPOSE 8000
-CMD ["fastapi", "run", "app/main.py", "--port", "8000", "--proxy-headers"]
-```
-
-Build context is the repo root so the frontend stage can see `frontend/`. ffmpeg is needed by the worker for the English-lecture assemble step.
-
-### Serving the SPA — `app/main.py`
-
-```python
-from fastapi import FastAPI
-from app.routers import auth, courses, lectures, documents, chat, mindmap, jobs
-
-app = FastAPI(title="Audimax")
-
-api = APIRouter(prefix="/api")
-for r in (auth, courses, lectures, documents, chat, mindmap, jobs):
-    api.include_router(r.router)
-app.include_router(api)
-
-# Low-priority: API routes are matched first; anything else falls back to dist/index.html
-# (fallback="auto" does that when index.html exists and there is no 404.html).
-app.frontend("/", directory="dist")
-```
-
-All API routes live under `/api` so there is no overlap with frontend paths. `check_dir="auto"` means: in `fastapi dev` (FASTAPI_ENV=development) a missing `dist/` is a warning; in `fastapi run` it is an error, which is what you want in the image.
+ffmpeg is in the backend image: the worker converts uploads the transcription provider rejects, and `app` converts live recordings to mp3.
 
 ---
 
@@ -380,7 +288,7 @@ pnpm dlx shadcn@latest init        # then: add button card tabs table badge dial
 `vite.config.ts`: `TanStackRouterVite()` plugin (file-based routes), tailwind plugin, and
 
 ```ts
-server: { proxy: { "/api": "http://localhost:8000" } }
+server: { proxy: { "/api": { target: "http://localhost:8000", ws: true } } }
 ```
 
 ### 4.2 Generated client
@@ -429,7 +337,7 @@ src/routes/
 Each step ends with something you can click or curl. Mirrors Phases 2–4b of the build plan.
 
 1. **Compose up** — `db` only. `docker compose up db`, connect with psql. *(Phase 2)*
-2. **Skeleton app in Docker** — Dockerfile, `app/main.py` with `/api/health`, `app.frontend("/", directory="dist")` serving a placeholder `dist/index.html`. `docker compose up` → `localhost:8000` shows the page, `/api/health` returns JSON, `/docs` works.
+2. **Skeleton app in Docker** — backend Dockerfile, `app/main.py` with `/api/health`; frontend Dockerfile + nginx.conf serving a placeholder page and forwarding `/api`. `docker compose up` → `localhost:3000` shows the page, `localhost:3000/api/health` returns JSON, `localhost:8000/docs` works.
 3. **Dummy endpoints** — every router in §3.3 returning hard-coded data matching the schemas. Export `openapi.json`.
 4. **Frontend scaffold + generated client** — Vite, router, shadcn, `pnpm gen`, Course List rendering the dummy data through `useQuery`. Vite proxy to the backend.
 5. **Auth** — users/sessions tables (first Alembic migration), login page, `current_user` dependency, cookie + bearer. Everything else now requires it.
@@ -438,7 +346,7 @@ Each step ends with something you can click or curl. Mirrors Phases 2–4b of th
 8. **Jobs: English lecture** — port `chunk … assemble` from `scripts/pipeline.py` into `services/english_lecture.py`, tasks per §3.4, English toggle + hear-original in the UI, rerun-chunk from Activity. *(Phase 4b)*
 9. **Embeddings + chat** — `embed` task, retrieval scoped to one lecture, Gemini → Claude fallback, Chat tab. *(Phase 5)*
 10. **Summary + mind map, then course level** — *(Phases 6–7)*
-11. **Off the laptop** — VPS, same `docker-compose.yml` without the override, Caddyfile, real R2 keys in `.env`, iOS Shortcut posting to `/api/lectures` with the bearer token. *(Phase 4)*
+11. **Off the laptop** — VPS with Dokploy deploying `docker-compose.yml` (HTTPS from its Traefik), real R2 keys in the Dokploy environment, iOS Shortcut posting to `/api/lectures` with the bearer token. *(Phase 4)*
 
 ---
 

@@ -1,12 +1,19 @@
-# Dev-only; Compose merges this automatically. Production: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`.
+# Local only: `docker compose up` merges this file automatically; Dokploy deploys docker-compose.yml alone.
+# UI (production build, via nginx) on http://localhost:3000, API + /docs on :8000, Postgres on :5432.
+# The backend runs `fastapi dev` with backend/app bind-mounted, so Python changes reload at once.
 services:
+  web:
+    ports:
+      - "3000:80"
   app:
+    ports:
+      - "8000:8000"
+    environment:
+      COOKIE_SECURE: "false"   # localhost is plain HTTP
     volumes:
       - storage:/code/data/storage
       - ./backend/app:/code/app
-    environment:
-      FASTAPI_ENV: development
-    command: ["fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
   worker:
     volumes:
       - storage:/code/data/storage

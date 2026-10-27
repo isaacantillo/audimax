@@ -7,7 +7,7 @@ import { client } from './client/client.gen'
 import { routeTree } from './routeTree.gen'
 import './index.css'
 
-// Same-origin in both setups: Vite proxies /api in dev, FastAPI serves both in prod.
+// Same-origin in both setups: Vite proxies /api in dev, the web container's nginx in Docker.
 client.setConfig({ baseUrl: '', credentials: 'include' })
 // An expired session on any call sends the user to the login page.
 client.interceptors.response.use((response) => {

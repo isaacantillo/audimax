@@ -1,25 +1,15 @@
-# Build context is the repo root (see docker-compose.yml): the frontend stage needs frontend/.
-
-FROM node:25-slim AS frontend
-WORKDIR /fe
-RUN npm install -g pnpm@11.9.0
-COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml* ./
-RUN pnpm install --frozen-lockfile
-COPY frontend/ .
-RUN pnpm exec vite build           # tsc is skipped here: the generated client is committed and checked in CI/dev
-
+# API, migrations and the job worker all run from this image (see docker-compose.yml).
 FROM python:3.14-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /code
-COPY backend/pyproject.toml backend/uv.lock ./
+COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
-COPY backend/app ./app
-COPY backend/alembic ./alembic
-COPY backend/alembic.ini .
-COPY --from=frontend /fe/dist ./dist
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini .
 ENV PATH="/code/.venv/bin:$PATH" PYTHONPATH=/code
 EXPOSE 8000
 CMD ["fastapi", "run", "app/main.py", "--port", "8000", "--proxy-headers"]

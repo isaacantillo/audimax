@@ -1,6 +1,5 @@
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.routing import APIRoute
@@ -9,10 +8,9 @@ from sqlalchemy import func, select
 from app.auth import current_user, hash_password
 from app.config import settings
 from app.db import SessionLocal
-from app.http_cache import cache_headers
 from app.jobs.queue import task_queue
 from app.models import User
-from app.routers import auth, courses, jobs, lectures, media, search
+from app.routers import auth, courses, jobs, lectures, live, media, search
 
 log = logging.getLogger("audimax")
 
@@ -40,11 +38,6 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Audimax", generate_unique_id_function=operation_id, lifespan=lifespan)
 
-
-
-app.middleware("http")(cache_headers)
-
-
 api = APIRouter(prefix="/api")
 
 
@@ -57,9 +50,5 @@ api.include_router(auth.router)
 # Everything except /health and /auth/login requires a session cookie or bearer token.
 for router in (courses, lectures, jobs, search, media):
     api.include_router(router.router, dependencies=[Depends(current_user)])
+api.include_router(live.router)
 app.include_router(api)
-
-# Low priority: every /api route above is matched first; anything else is served from the
-# built SPA, falling back to index.html so client-side routes survive a refresh.
-# check_dir="auto": missing dist/ only warns under `fastapi dev`, errors under `fastapi run`.
-app.frontend("/", directory=Path(__file__).parent.parent / "dist")

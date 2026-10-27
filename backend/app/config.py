@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # Single user, created on first start if no users exist.
     admin_username: str = "admin"
     admin_password: str = ""
-    cookie_secure: bool = False  # set true behind HTTPS (Caddy)
+    cookie_secure: bool = False  # true behind HTTPS (docker-compose.yml sets it; the local override does not)
     session_days: int = 30
 
     # Offline mode: deterministic fake transcription/LLM/translation, no network, no cost.
@@ -25,7 +25,14 @@ class Settings(BaseSettings):
     # Generation: Gemini primary, Claude fallback (OpenRouter tries them in order).
     llm_models: str = "google/gemini-3.8-flash,anthropic/claude-sonnet-5.5"
     storage_dir: str = "data/storage"  # used when R2 is not configured
+    # Translation: "llm" (the models above, via OpenRouter) or "deepl" (needs DEEPL_API_KEY).
+    translator: str = "llm"
     deepl_api_key: str = ""
+
+    # Live subtitles go straight to OpenAI's realtime transcription (OpenRouter has no streaming STT).
+    openai_api_key: str = ""
+    live_transcribe_model: str = "gpt-live-transcribe"
+    live_language: str = "de"
 
     # Cloudflare R2 (S3-compatible). Empty => storage falls back to backend/data/.
     r2_account_id: str = ""
