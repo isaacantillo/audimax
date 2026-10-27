@@ -1,4 +1,4 @@
-# Local only: `docker compose up` merges this file automatically; Dokploy deploys docker-compose.yml alone.
+# Local only: `docker compose up` merges this file automatically; production names its files explicitly.
 # UI (production build, via nginx) on http://localhost:3000, API + /docs on :8000, Postgres on :5432.
 # The backend runs `fastapi dev` with backend/app bind-mounted, so Python changes reload at once.
 services:

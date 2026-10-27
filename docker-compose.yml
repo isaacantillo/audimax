@@ -1,13 +1,13 @@
-# Production, as Dokploy deploys it (Compose path: ./docker-compose.yml). In Dokploy add one domain
-# on the `web` service, port 80, HTTPS with Let's Encrypt: Traefik does TLS, nothing else is exposed.
+# The services, shared by production and local runs. Production adds docker-compose.prod.yml (Caddy
+# for HTTPS in front of `web`); nothing else is exposed.
 # Locally, docker-compose.override.yml (merged automatically) publishes ports and adds hot reload.
 x-backend: &backend
   build: ./backend
-  env_file: .env   # Dokploy writes its Environment tab to this file
+  env_file: .env
   environment: &backend-env
     DATABASE_URL: postgresql+psycopg://audimax:${POSTGRES_PASSWORD:-audimax}@db:5432/audimax
     AI_STUB: ${AI_STUB:-false}
-    # Served over HTTPS (Traefik), so the session cookie is HTTPS-only. The local override turns it off.
+    # Served over HTTPS (Caddy), so the session cookie is HTTPS-only. The local override turns it off.
     COOKIE_SECURE: ${COOKIE_SECURE:-true}
   volumes:
     # Only used while R2 is not configured; with R2 credentials set nothing is written here.
@@ -44,7 +44,7 @@ services:
       migrate: { condition: service_completed_successfully }
     expose:
       - "8000"
-    # Requests arrive through nginx (and Traefik before it), so trust their X-Forwarded-* headers:
+    # Requests arrive through nginx (and Caddy before it), so trust their X-Forwarded-* headers:
     # the login rate limit needs the real client IP.
     command: ["fastapi", "run", "app/main.py", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
     healthcheck:

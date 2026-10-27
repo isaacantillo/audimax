@@ -1,0 +1,23 @@
+# Production on a plain VPS: Caddy terminates HTTPS in front of `web`. Use it WITHOUT the dev override:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Postgres stays on the internal network; only Caddy (80/443) is reachable from outside.
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env (e.g. audimax.example.com)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  caddy_data:
+  caddy_config:

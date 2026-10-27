@@ -1,0 +1,7 @@
+# Caddy gets and renews the HTTPS certificate by itself. Point the domain's DNS A record at the VPS
+# first and set DOMAIN in .env. nginx (`web`) still serves the SPA and forwards /api and the
+# live-subtitles WebSocket to `app`; Caddy only adds TLS in front of it.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:80
+}
