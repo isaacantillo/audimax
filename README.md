@@ -77,6 +77,7 @@ Everything runs on one VPS: Postgres, the API, the worker, nginx and Caddy, whic
    ```
    The same command deploys an update after you change the code.
 4. Backups: cron runs `scripts/backup.sh` nightly (`0 3 * * *`). It dumps the database to `backups/` (keeps 14) and copies each dump to R2 under `backups/`. Recordings are in R2 already; the database is the part a dead disk would take.
+5. Users: `./scripts/users.sh add <name>` creates one with a random password, `./scripts/users.sh reset <name>` gives a new one (and logs them out of every browser), `./scripts/users.sh list` lists them. The password is printed once. Every user sees and can change all courses and lectures: there is no per-user data.
 
 ## Layout
 
