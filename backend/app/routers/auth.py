@@ -88,8 +88,10 @@ async def list_sessions(
     auth: tuple[User, AuthSession] = Depends(current_session),
     db: AsyncSession = Depends(get_session),
 ):
-    """Your signed-in devices and API tokens; the admin sees everyone's. Expired sessions are left out."""
+    """Every signed-in device and API token, for all users (admin only). Expired sessions are left out."""
     user, current = auth
+    if not user.is_admin:
+        raise HTTPException(403, "Only the admin can see sessions")
     now = datetime.datetime.now(datetime.UTC)
     query = (
         select(AuthSession, User.username)
@@ -97,8 +99,6 @@ async def list_sessions(
         .where((AuthSession.expires_at.is_(None)) | (AuthSession.expires_at > now))
         .order_by(User.username, AuthSession.last_seen_at.desc().nulls_last(), AuthSession.created_at.desc())
     )
-    if not user.is_admin:
-        query = query.where(AuthSession.user_id == user.id)
     return [
         SessionOut(
             id=s.id, username=username, kind=s.kind, name=s.name, device=describe_device(s.user_agent),
@@ -115,10 +115,12 @@ async def revoke_session(
     auth: tuple[User, AuthSession] = Depends(current_session),
     db: AsyncSession = Depends(get_session),
 ):
-    """Log a device out (or revoke an API token). Your own, or anyone's for the admin."""
+    """Log a device out (or revoke an API token), for any user (admin only)."""
     user, current = auth
+    if not user.is_admin:
+        raise HTTPException(403, "Only the admin can manage sessions")
     target = await db.get(AuthSession, session_id)
-    if target is None or not (user.is_admin or target.user_id == user.id):
+    if target is None:
         raise HTTPException(404, "Session not found")
     await db.delete(target)
     await db.commit()

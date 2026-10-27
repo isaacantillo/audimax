@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 export const Route = createFileRoute('/_authed/')({ component: CourseList })
 
 function CourseList() {
+  const { user } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const { data: courses, isPending, error } = useQuery({
     ...listCoursesOptions(),
@@ -43,7 +44,7 @@ function CourseList() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                <p>Added by {course.added_by}</p>
+                {user.is_admin && <p>Added by {course.added_by}</p>}
                 <p>
                   {course.lecture_count} lectures · last activity{' '}
                   {new Date(course.last_activity_at).toLocaleDateString()}

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 
 import { listSessionsOptions, revokeSessionMutation } from '@/client/@tanstack/react-query.gen'
 import type { SessionOut } from '@/client/types.gen'
@@ -7,7 +7,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
-export const Route = createFileRoute('/_authed/sessions')({ component: Sessions })
+// Admin only (the API refuses everyone else too).
+export const Route = createFileRoute('/_authed/sessions')({
+  beforeLoad: ({ context }) => {
+    if (!context.user.is_admin) throw redirect({ to: '/' })
+  },
+  component: Sessions,
+})
 
 function ago(iso: string | null | undefined) {
   if (!iso) return '—'
@@ -19,7 +25,6 @@ function ago(iso: string | null | undefined) {
 }
 
 function Sessions() {
-  const { user } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { data: sessions, isPending } = useQuery({ ...listSessionsOptions(), refetchInterval: 60000 })
@@ -41,15 +46,14 @@ function Sessions() {
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Sessions</h1>
       <p className="text-sm text-muted-foreground">
-        {user.is_admin ? 'Every signed-in device and API token, for all users.' : 'Where you are signed in, and your API tokens.'}{' '}
-        Log out anything you do not recognise. Locations are approximate, from the IP address.
+        Every signed-in device and API token, for all users. Log out anything you do not recognise. Locations are approximate, from the IP address.
       </p>
       {isPending && <p className="text-muted-foreground">Loading…</p>}
       {sessions && sessions.length > 0 && (
         <Table>
           <TableHeader>
             <TableRow>
-              {user.is_admin && <TableHead>User</TableHead>}
+              <TableHead>User</TableHead>
               <TableHead>Device</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Last active</TableHead>
@@ -60,7 +64,7 @@ function Sessions() {
           <TableBody>
             {sessions.map((s) => (
               <TableRow key={s.id}>
-                {user.is_admin && <TableCell className="font-medium">{s.username}</TableCell>}
+                <TableCell className="font-medium">{s.username}</TableCell>
                 <TableCell>
                   {label(s)} {s.current && <Badge variant="secondary">this device</Badge>}
                 </TableCell>

@@ -49,9 +49,11 @@ function AuthedLayout() {
           <Link to="/settings" className="text-sm text-muted-foreground [&.active]:text-foreground">
             Settings
           </Link>
-          <Link to="/sessions" className="text-sm text-muted-foreground [&.active]:text-foreground">
-            Sessions
-          </Link>
+          {user.is_admin && (
+            <Link to="/sessions" className="text-sm text-muted-foreground [&.active]:text-foreground">
+              Sessions
+            </Link>
+          )}
           <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
             {user.username}
             <Button variant="outline" size="sm" onClick={() => logout.mutate({})} disabled={logout.isPending}>

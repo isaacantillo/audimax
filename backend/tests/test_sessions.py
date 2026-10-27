@@ -40,26 +40,24 @@ def test_last_seen_is_written_at_most_every_few_minutes_unless_the_ip_changes():
     assert touch(session, Conn("10.0.0.2", IPHONE), t0 + SEEN_EVERY * 2)
 
 
-async def test_users_see_and_revoke_their_own_sessions(authed):
-    mine = (await authed.get("/api/auth/sessions", headers={"user-agent": IPHONE})).json()
-    assert len(mine) == 1 and mine[0]["current"] and mine[0]["username"] == "tester"
-    assert mine[0]["location"] == "Local network" and mine[0]["ip"]
-
-    other = await login_as(authed, "mallory")
-    theirs = (await other.get("/api/auth/sessions")).json()
-    assert [s["username"] for s in theirs] == ["mallory"]
-    assert (await other.delete(f"/api/auth/sessions/{mine[0]['id']}")).status_code == 404, "not someone else's"
-
-    r = await other.delete(f"/api/auth/sessions/{theirs[0]['id']}")
-    assert r.status_code == 204
-    assert (await other.get("/api/auth/me")).status_code == 401, "revoking your current session logs you out"
+async def test_only_the_admin_sees_or_manages_sessions(authed):
+    assert (await authed.get("/api/auth/me")).json()["is_admin"] is False
+    assert (await authed.get("/api/auth/sessions")).status_code == 403
+    admin = await login_as(authed, "boss", admin=True)
+    some_session = (await admin.get("/api/auth/sessions")).json()[0]["id"]
+    user = await login_as(admin, "mallory")
+    assert (await user.delete(f"/api/auth/sessions/{some_session}")).status_code == 403
 
 
 async def test_admin_sees_and_revokes_everyones_sessions(authed):
-    tester_session = (await authed.get("/api/auth/sessions")).json()[0]
     admin = await login_as(authed, "boss", admin=True)
     assert (await admin.get("/api/auth/me")).json()["is_admin"] is True
     sessions = (await admin.get("/api/auth/sessions")).json()
     assert sorted(s["username"] for s in sessions) == ["boss", "tester"]
-    assert (await admin.delete(f"/api/auth/sessions/{tester_session['id']}")).status_code == 204
-    assert sorted(s["username"] for s in (await admin.get("/api/auth/sessions")).json()) == ["boss"]
+    mine = next(s for s in sessions if s["current"])
+    assert mine["username"] == "boss" and mine["location"] == "Local network"
+    tester = next(s for s in sessions if s["username"] == "tester")
+    assert (await admin.delete(f"/api/auth/sessions/{tester['id']}")).status_code == 204
+    assert [s["username"] for s in (await admin.get("/api/auth/sessions")).json()] == ["boss"]
+    assert (await admin.delete(f"/api/auth/sessions/{mine['id']}")).status_code == 204
+    assert (await admin.get("/api/auth/me")).status_code == 401, "logging out your own session signs you out"
